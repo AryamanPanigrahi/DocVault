@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from app import database
 
 app = FastAPI()
 
