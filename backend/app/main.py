@@ -3,9 +3,12 @@ from sqlalchemy.orm import Session
 from app.security import get_current_user
 from app import database, models, schemas
 from app.security import hash_password
+from app.storage import ensure_bucket_exists
 
 app = FastAPI()
-
+@app.on_event("startup")
+def startup_event():
+    ensure_bucket_exists()
 
 @app.get("/")
 def read_root():
