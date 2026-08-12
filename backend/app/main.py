@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-
+from app.security import get_current_user
 from app import database, models, schemas
 from app.security import hash_password
 
@@ -13,8 +13,12 @@ def read_root():
 
 
 @app.get("/documents/{document_id}")
-def get_document(document_id: int):
-    return {"document_id": document_id, "status": "placeholder — no real data yet"}
+def get_document(document_id: int, current_user: models.User = Depends(get_current_user)):
+    return {
+        "document_id": document_id,
+        "requested_by": current_user.email,
+        "status": "placeholder — no real data yet",
+    }
 
 
 @app.post("/signup", response_model=schemas.UserOut)
