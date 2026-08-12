@@ -13,3 +13,14 @@ class UserOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class DocumentOut(BaseModel):
+    id: int
+    filename: str
+    content_type: str | None
+    size_bytes: int | None
+    uploaded_at: datetime
+
+    class Config:
+        from_attributes = True

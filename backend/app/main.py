@@ -50,3 +50,40 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
     access_token = create_access_token(data={"sub": str(user.id)})
     return {"access_token": access_token, "token_type": "bearer"}
+
+
+import uuid
+from fastapi import UploadFile, File
+from app.storage import minio_client, BUCKET_NAME
+import io
+
+@app.post("/documents/upload", response_model=schemas.DocumentOut)
+def upload_document(
+    file: UploadFile = File(...),
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    file_bytes = file.file.read()
+    file_size = len(file_bytes)
+
+    storage_key = f"{uuid.uuid4()}_{file.filename}"
+
+    minio_client.put_object(
+        BUCKET_NAME,
+        storage_key,
+        data=io.BytesIO(file_bytes),
+        length=file_size,
+        content_type=file.content_type,
+    )
+
+    new_document = models.Document(
+        filename=file.filename,
+        file_path=storage_key,
+        content_type=file.content_type,
+        size_bytes=file_size,
+        owner_id=current_user.id,
+    )
+    db.add(new_document)
+    db.commit()
+    db.refresh(new_document)
+    return new_document
