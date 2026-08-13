@@ -15,16 +15,6 @@ def startup_event():
 def read_root():
     return {"message": "DocVault backend is alive"}
 
-
-@app.get("/documents/{document_id}")
-def get_document(document_id: int, current_user: models.User = Depends(get_current_user)):
-    return {
-        "document_id": document_id,
-        "requested_by": current_user.email,
-        "status": "placeholder — no real data yet",
-    }
-
-
 @app.post("/signup", response_model=schemas.UserOut)
 def signup(user: schemas.UserCreate, db: Session = Depends(database.get_db)):
     existing_user = db.query(models.User).filter(models.User.email == user.email).first()
@@ -89,6 +79,32 @@ def upload_document(
     db.commit()
     db.refresh(new_document)
     return new_document
+
+@app.get("/documents/search", response_model=list[schemas.DocumentOut])
+def search_documents(
+    q: str,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    results = (
+        db.query(models.Document)
+        .filter(models.Document.owner_id == current_user.id)
+        .filter(
+            models.Document.extracted_text.ilike(f"%{q}%")
+            | models.Document.filename.ilike(f"%{q}%")
+        )
+        .all()
+    )
+    return results
+
+@app.get("/documents/{document_id}")
+def get_document(document_id: int, current_user: models.User = Depends(get_current_user)):
+    return {
+        "document_id": document_id,
+        "requested_by": current_user.email,
+        "status": "placeholder — no real data yet",
+    }
+
 from fastapi.responses import StreamingResponse
 
 @app.get("/documents/{document_id}/download")
