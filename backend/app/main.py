@@ -97,6 +97,17 @@ def search_documents(
     )
     return results
 
+@app.get("/documents", response_model=list[schemas.DocumentOut])
+def list_documents(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return (
+        db.query(models.Document)
+        .filter(models.Document.owner_id == current_user.id)
+        .all()
+    )
+
 @app.get("/documents/{document_id}")
 def get_document(document_id: int, current_user: models.User = Depends(get_current_user)):
     return {
@@ -128,3 +139,23 @@ def download_document(
         media_type=document.content_type,
         headers={"Content-Disposition": f'attachment; filename="{document.filename}"'},
     )
+@app.delete("/documents/{document_id}")
+def delete_document(
+    document_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    document = db.query(models.Document).filter(models.Document.id == document_id).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if document.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this document")
+
+    minio_client.remove_object(BUCKET_NAME, document.file_path)
+
+    db.delete(document)
+    db.commit()
+
+    return {"detail": "Document deleted successfully"}
