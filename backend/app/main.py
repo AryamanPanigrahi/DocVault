@@ -87,3 +87,26 @@ def upload_document(
     db.commit()
     db.refresh(new_document)
     return new_document
+from fastapi.responses import StreamingResponse
+
+@app.get("/documents/{document_id}/download")
+def download_document(
+    document_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    document = db.query(models.Document).filter(models.Document.id == document_id).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if document.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to access this document")
+
+    minio_response = minio_client.get_object(BUCKET_NAME, document.file_path)
+
+    return StreamingResponse(
+        minio_response,
+        media_type=document.content_type,
+        headers={"Content-Disposition": f'attachment; filename="{document.filename}"'},
+    )
