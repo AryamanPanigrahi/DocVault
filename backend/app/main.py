@@ -4,6 +4,7 @@ from app.security import get_current_user
 from app import database, models, schemas
 from app.security import hash_password
 from app.storage import ensure_bucket_exists
+from app.ocr import extract_text
 
 app = FastAPI()
 @app.on_event("startup")
@@ -65,7 +66,7 @@ def upload_document(
 ):
     file_bytes = file.file.read()
     file_size = len(file_bytes)
-
+    extracted_text = extract_text(file_bytes, file.content_type)
     storage_key = f"{uuid.uuid4()}_{file.filename}"
 
     minio_client.put_object(
@@ -77,12 +78,13 @@ def upload_document(
     )
 
     new_document = models.Document(
-        filename=file.filename,
-        file_path=storage_key,
-        content_type=file.content_type,
-        size_bytes=file_size,
-        owner_id=current_user.id,
-    )
+    filename=file.filename,
+    file_path=storage_key,
+    content_type=file.content_type,
+    size_bytes=file_size,
+    owner_id=current_user.id,
+    extracted_text=extracted_text,
+)
     db.add(new_document)
     db.commit()
     db.refresh(new_document)
