@@ -160,3 +160,92 @@
   routes, sub claim carrying user identity through a stateless token,
   full request lifecycle from Authorization header to verified user object
 - Next stage: MinIO — object storage for actual file uploads
+
+## Current state (last updated: 2026-08-12)
+- Phase 1, backend setup
+- Working:
+  - JWT auth (complete), Postgres + SQLAlchemy + Alembic, MinIO service
+  - POST /documents/upload — protected route, accepts a real file via
+    UploadFile, saves bytes to MinIO under a UUID-prefixed key, saves
+    metadata (filename, content_type, size_bytes, file_path, owner_id)
+    to Postgres via Document model. Tested end-to-end: verified file
+    appears in MinIO console AND matching row exists in Postgres with
+    correct owner_id and file_path linking the two.
+- Fixed: `docker compose down -v` wipes ALL volumes in the compose
+  file, not just the one being reset — this silently deleted Postgres
+  data while fixing a MinIO password issue. Lesson: use targeted
+  `docker volume rm <name>` for single-service resets going forward,
+  reserve `down -v` for full environment wipes only.
+- Next step: file retrieval/download endpoint, then move toward
+  Tesseract OCR — extracting text from uploaded documents on upload
+
+## Current state (last updated: 2026-08-13)
+- Phase 1, backend setup
+- Working:
+  - JWT auth (complete), Postgres + SQLAlchemy + Alembic, MinIO
+  - POST /documents/upload — file to MinIO, metadata to Postgres
+  - GET /documents/{document_id}/download — streams file back from
+    MinIO, enforces both authentication (401 if not logged in) and
+    authorization (403 if not the document's owner). Tested end-to-end:
+    real file downloaded and opened correctly.
+- Fixed: server not picking up new route code even after --reload
+  restart — required a full manual Ctrl+C stop + fresh start, plus a
+  brand new browser tab (not just refresh) to clear stale cached
+  endpoint list in /docs.
+- Next stage: Tesseract OCR — extract text from uploaded documents so
+  they become full-text searchable (the actual differentiator feature)
+
+## Current state (last updated: 2026-08-13)
+- Phase 1, backend setup
+- Working:
+  - JWT auth, Postgres + SQLAlchemy + Alembic, MinIO, upload/download
+  - OCR (Tesseract via pytesseract) wired into upload flow — PDFs use
+    native text extraction first (PyMuPDF), falls back to OCR for
+    scanned pages; images go straight through Tesseract. extracted_text
+    saved to Postgres automatically on upload.
+  - Tested and verified: typed/printed text (screenshot) extracts
+    near-perfectly. Handwritten text extracts poorly/empty — confirmed
+    this is Tesseract's known real limitation, not a bug (isolated via
+    direct python -c testing bypassing the API).
+- Next stage: search endpoint — query extracted_text so documents
+  become findable by their actual content, not just filename. This is
+  the actual differentiator feature coming together.
+
+## Current state (last updated: 2026-08-13)
+- Phase 1, backend setup — CORE FEATURES COMPLETE
+- Working:
+  - JWT auth, Postgres + SQLAlchemy + Alembic, MinIO, upload/download
+  - Tesseract OCR extraction on upload (typed text works well,
+    handwriting is a known real limitation, verified via testing)
+  - GET /documents/search?q=... — searches extracted_text AND
+    filename via case-insensitive substring match, scoped to the
+    logged-in user's own documents only. Tested: correctly returns
+    only matching documents, excludes non-matches.
+- Fixed: FastAPI matches routes top-to-bottom, first match wins.
+  /documents/{document_id} (generic) was defined before
+  /documents/search (literal), so "search" was being parsed as a
+  document_id. Lesson: literal/fixed routes must be defined before
+  generic parameterized routes that could swallow them.
+- Remaining for Phase 1: basic file list/view/delete endpoints
+  (mostly straightforward CRUD, no new concepts), then React/
+  TypeScript/Tailwind frontend
+
+## Current state (last updated: 2026-08-13)
+- Phase 1 backend: FEATURE COMPLETE
+- Working: JWT auth, Postgres + SQLAlchemy + Alembic, MinIO storage,
+  OCR extraction, search, plus full CRUD:
+  - POST /signup, POST /login
+  - POST /documents/upload — file to MinIO, metadata + OCR text to Postgres
+  - GET /documents — list current user's documents
+  - GET /documents/search?q=... — search by content or filename
+  - GET /documents/{id}/download — download, ownership-checked
+  - DELETE /documents/{id} — removes from both MinIO and Postgres,
+    ownership-checked
+  - GET /documents/{id} — legacy placeholder route (still exists,
+    could be removed or repurposed for "get single document metadata")
+- Understand: FastAPI route matching order (literal before generic),
+  query params vs path params vs body, ownership-filtering pattern
+  repeated across download/delete (candidate for future refactor into
+  a shared helper once a 3rd+ use case appears)
+- Remaining for Phase 1: React/TypeScript/Tailwind frontend — the
+  entire backend is now ready to be consumed by a real UI
