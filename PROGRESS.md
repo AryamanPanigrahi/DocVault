@@ -249,3 +249,19 @@
   a shared helper once a 3rd+ use case appears)
 - Remaining for Phase 1: React/TypeScript/Tailwind frontend — the
   entire backend is now ready to be consumed by a real UI
+## Current state (last updated: 2026-08-14)
+- Phase 1: backend feature-complete, frontend just started
+- Frontend scaffolded: React + TypeScript via Vite, Tailwind CSS wired
+  in as a Vite plugin. Confirmed working — styled test page renders
+  correctly (dark bg, centered "DocVault" heading).
+- Fixed: vite.config.ts had duplicate imports after adding the
+  Tailwind plugin — pasted new imports alongside old ones instead of
+  merging. Lesson: when editing an existing config file, replace the
+  relevant section rather than appending, or view the file first to
+  confirm what's already there.
+- Design direction settled (from reference research): light mode
+  Notion-style (white/off-white, color accents) + dark mode Linear/
+  Cloudy-dashboard-style (near-black bg, colored file-type badges),
+  system-theme-aware with manual toggle. Font: Inter or Manrope.
+- Next step: build out the actual app structure — login/signup pages,
+  main document list layout, wire up API calls to the FastAPI backend
