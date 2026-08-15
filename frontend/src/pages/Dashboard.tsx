@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { getFileTypeInfo } from '../utils/fileType'
+import useTheme from '../hooks/useTheme'
 
 interface Document {
   id: number
@@ -11,48 +14,161 @@ interface Document {
 function Dashboard() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
+  const { theme, toggleTheme } = useTheme()
+  const [uploading, setUploading] = useState(false)
+  const [uploadMessage, setUploadMessage] = useState<{ text: string; error: boolean } | null>(null)
+
+  async function fetchDocuments() {
+  const token = localStorage.getItem('access_token')
+
+  const response = await fetch('http://127.0.0.1:8000/documents', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+
+  if (response.status === 401) {
+    handleUnauthorized()
+    return
+  }
+
+  if (response.ok) {
+    const data = await response.json()
+    setDocuments(data)
+  }
+
+  setLoading(false)
+}
 
   useEffect(() => {
-    async function fetchDocuments() {
-      const token = localStorage.getItem('access_token')
-
-      const response = await fetch('http://127.0.0.1:8000/documents', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setDocuments(data)
-      }
-
-      setLoading(false)
-    }
-
     fetchDocuments()
   }, [])
 
+  function handleLogout() {
+    localStorage.removeItem('access_token')
+    navigate('/login')
+  }
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setUploading(true)
+    const token = localStorage.getItem('access_token')
+
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await fetch('http://127.0.0.1:8000/documents/upload', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData,
+    })
+
+    if (response.status === 401) {
+      handleUnauthorized()
+      return
+    }
+
+    if (response.ok) {
+      await fetchDocuments()
+      setUploadMessage({ text: 'File uploaded successfully', error: false })
+    } else {
+      setUploadMessage({ text: 'Upload failed', error: true })
+    }
+
+    setUploading(false)
+    e.target.value = ''
+    setTimeout(() => setUploadMessage(null), 3000)
+  }
+  function handleUnauthorized() {
+  localStorage.removeItem('access_token')
+  navigate('/login')
+}
   return (
-    <div className="min-h-screen bg-slate-900 p-8">
-      <h1 className="text-3xl text-white font-bold mb-6">Your Documents</h1>
+    <div className="min-h-screen flex bg-white dark:bg-app-bg">
+      <aside className="w-56 shrink-0 border-r border-slate-200 dark:border-app-border p-6 flex flex-col justify-between">
+        <div>
+          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-8">DocVault</h2>
+          <nav className="flex flex-col gap-1">
+            <span className="px-3 py-2 rounded-md bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white text-sm font-medium">
+              All Documents
+            </span>
+            <span className="px-3 py-2 rounded-md text-slate-500 dark:text-slate-400 text-sm">
+              Recent
+            </span>
+            <span className="px-3 py-2 rounded-md text-slate-500 dark:text-slate-400 text-sm">
+              Trash
+            </span>
+          </nav>
+        </div>
 
-      {loading && <p className="text-slate-400">Loading...</p>}
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={toggleTheme}
+            className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-3 py-2 rounded-md text-sm"
+          >
+            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
+          </button>
+          <button
+            onClick={handleLogout}
+            className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-3 py-2 rounded-md text-sm"
+          >
+            Log out
+          </button>
+        </div>
+      </aside>
 
-      {!loading && documents.length === 0 && (
-        <p className="text-slate-400">No documents yet.</p>
-      )}
+      <main className="flex-1 p-8">
+        <h1 className="text-3xl text-slate-900 dark:text-white font-bold mb-6">Your Documents</h1>
+        <label className="inline-block mb-6 cursor-pointer">
+          <span className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium">
+            {uploading ? 'Uploading...' : '+ Upload Document'}
+          </span>
+          <input
+            type="file"
+            onChange={handleFileUpload}
+            disabled={uploading}
+            className="hidden"
+          />
+        </label>
+        {loading && <p className="text-slate-500 dark:text-slate-400">Loading...</p>}
 
-      <div className="flex flex-col gap-2">
-        {documents.map((doc) => (
-          <div key={doc.id} className="bg-slate-800 p-4 rounded flex justify-between items-center">
-            <div>
-              <p className="text-white">{doc.filename}</p>
-              <p className="text-slate-400 text-sm">
-                {doc.content_type} · {doc.size_bytes} bytes
-              </p>
-            </div>
+        {!loading && documents.length === 0 && (
+          <p className="text-slate-500 dark:text-slate-400">No documents yet.</p>
+        )}
+
+        <div className="flex flex-col gap-2">
+          {documents.map((doc) => {
+            const { label, color } = getFileTypeInfo(doc.content_type)
+            return (
+              <div
+                key={doc.id}
+                className="bg-slate-100 dark:bg-app-surface p-4 rounded-lg flex items-center gap-4 border border-slate-200 dark:border-app-border"
+              >
+                <div
+                  className={`${color} text-white text-xs font-bold w-10 h-10 rounded-lg flex items-center justify-center shrink-0`}
+                >
+                  {label}
+                </div>
+                <div>
+                  <p className="text-slate-900 dark:text-white font-medium">{doc.filename}</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                    {doc.size_bytes} bytes
+                  </p>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      {uploadMessage && (
+          <div
+            className={`fixed bottom-6 left-6 px-4 py-3 rounded-lg text-sm text-white shadow-lg backdrop-blur-sm ${
+              uploadMessage.error ? 'bg-red-600/90' : 'bg-green-600/90'
+            }`}
+          >
+            {uploadMessage.text}
           </div>
-        ))}
-      </div>
+        )}
+      </main>
     </div>
   )
 }

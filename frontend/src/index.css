@@ -1,1 +1,11 @@
 @import "tailwindcss";
+
+@theme {
+  --color-app-bg: #0a0a0c;
+  --color-app-surface: #16161a;
+  --color-app-border: #27272a;
+}
+
+body {
+  font-family: 'Work Sans', sans-serif;
+}

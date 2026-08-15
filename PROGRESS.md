@@ -305,3 +305,24 @@
   stored JWT to future requests (documents list, upload, etc.) and
   build route protection so unauthenticated users get redirected to
   /login
+
+## Current state (last updated: 2026-08-14)
+- Phase 1: FULL STACK WORKING END-TO-END for the first time
+- Frontend: React + TypeScript + Tailwind + React Router. Login and
+  Signup pages fully functional against the real backend. Route
+  protection via ProtectedRoute component (redirects to /login if no
+  token). Dashboard fetches real documents from GET /documents using
+  the stored JWT, renders them as a live list — confirmed showing
+  actual uploaded documents from Postgres/MinIO.
+- New concepts understood: useState (component state), useEffect
+  (side effects / data fetching on load), TypeScript interfaces
+  mirroring backend Pydantic schemas, attaching JWT via Authorization
+  header, React Router protected routes.
+- Fixed: recurring pattern today — new frontend code not taking
+  effect turned out to be stale dev server/browser tab, not bad code.
+  Lesson (same as backend): after adding new files/routes, fully
+  restart the dev server AND open a fresh browser tab before
+  debugging further.
+- Remaining for Phase 1: upload UI (drag-drop or file picker), search
+  bar wired to GET /documents/search, download/delete buttons on each
+  document card, logout functionality
