@@ -18,6 +18,8 @@ function Dashboard() {
   const { theme, toggleTheme } = useTheme()
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState<{ text: string; error: boolean } | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searching, setSearching] = useState(false)
 
   async function fetchDocuments() {
   const token = localStorage.getItem('access_token')
@@ -42,6 +44,40 @@ function Dashboard() {
   useEffect(() => {
     fetchDocuments()
   }, [])
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchQuery.trim() === '') {
+        fetchDocuments()
+      } else {
+        runSearch()
+      }
+    }, 400)
+
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery])
+
+  async function runSearch() {
+    setSearching(true)
+    const token = localStorage.getItem('access_token')
+
+    const response = await fetch(
+      `http://127.0.0.1:8000/documents/search?q=${encodeURIComponent(searchQuery)}`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    )
+
+    if (response.status === 401) {
+      handleUnauthorized()
+      return
+    }
+
+    if (response.ok) {
+      const data = await response.json()
+      setDocuments(data)
+    }
+
+    setSearching(false)
+  }
 
   function handleLogout() {
     localStorage.removeItem('access_token')
@@ -83,6 +119,10 @@ function Dashboard() {
   localStorage.removeItem('access_token')
   navigate('/login')
 }
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+  }
   return (
     <div className="min-h-screen flex bg-white dark:bg-app-bg">
       <aside className="w-56 shrink-0 border-r border-slate-200 dark:border-app-border p-6 flex flex-col justify-between">
@@ -117,8 +157,24 @@ function Dashboard() {
         </div>
       </aside>
 
-      <main className="flex-1 p-8">
-        <h1 className="text-3xl text-slate-900 dark:text-white font-bold mb-6">Your Documents</h1>
+      <main className="flex-1 p-8"><h1 className="text-3xl text-slate-900 dark:text-white font-bold mb-6">Your Documents</h1>
+
+        <form onSubmit={handleSearch} className="mb-6 flex gap-2">
+          <input
+            type="text"
+            placeholder="Search documents..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-3 py-2 rounded-md text-sm border border-slate-200 dark:border-app-border w-64"
+          />
+          <button
+            type="submit"
+            className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-4 py-2 rounded-md text-sm"
+          >
+            {searching ? 'Searching...' : 'Search'}
+          </button>
+        </form>
+        
         <label className="inline-block mb-6 cursor-pointer">
           <span className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium">
             {uploading ? 'Uploading...' : '+ Upload Document'}
