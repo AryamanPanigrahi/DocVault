@@ -265,3 +265,21 @@
   system-theme-aware with manual toggle. Font: Inter or Manrope.
 - Next step: build out the actual app structure — login/signup pages,
   main document list layout, wire up API calls to the FastAPI backend
+
+## Current state (last updated: 2026-08-14)
+- Phase 1: backend feature-complete, frontend infra + routing done
+- Frontend: React + TypeScript + Tailwind confirmed working. React
+  Router set up with three routes (/  /login  /signup), each
+  rendering a distinct placeholder page. Verified in browser.
+- Fixed: `npm install react-router-dom` was run from the wrong
+  directory (DocVault root instead of frontend/) — succeeded silently
+  but never actually added the package. Lesson (recurring across both
+  backend and frontend now): after any install command, verify the
+  package actually appears in package.json / pyproject.toml rather
+  than trusting terminal output alone.
+- Also noted: browser extensions can inject unrelated console errors
+  into any localhost page — use Incognito/Private window when
+  debugging to rule out this noise.
+- Next step: build real Login and Signup forms that actually call the
+  FastAPI backend (POST /login, POST /signup) — first real frontend-
+  to-backend connection

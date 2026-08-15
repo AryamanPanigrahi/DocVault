@@ -5,8 +5,16 @@ from app import database, models, schemas
 from app.security import hash_password
 from app.storage import ensure_bucket_exists
 from app.ocr import extract_text
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 @app.on_event("startup")
 def startup_event():
     ensure_bucket_exists()
