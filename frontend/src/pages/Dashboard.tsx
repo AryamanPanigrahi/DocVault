@@ -120,6 +120,59 @@ function Dashboard() {
   navigate('/login')
 }
 
+  async function handleDownload(id: number, filename: string) {
+    const token = localStorage.getItem('access_token')
+
+    const response = await fetch(`http://127.0.0.1:8000/documents/${id}/download`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (response.status === 401) {
+      handleUnauthorized()
+      return
+    }
+
+    if (!response.ok) {
+      setUploadMessage({ text: 'Download failed', error: true })
+      setTimeout(() => setUploadMessage(null), 3000)
+      return
+    }
+
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    link.click()
+    window.URL.revokeObjectURL(url)
+  }
+
+  async function handleDelete(id: number) {
+    const confirmed = window.confirm('Delete this document? This cannot be undone.')
+    if (!confirmed) return
+
+    const token = localStorage.getItem('access_token')
+
+    const response = await fetch(`http://127.0.0.1:8000/documents/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (response.status === 401) {
+      handleUnauthorized()
+      return
+    }
+
+    if (response.ok) {
+      setDocuments((prev) => prev.filter((doc) => doc.id !== id))
+      setUploadMessage({ text: 'Document deleted', error: false })
+    } else {
+      setUploadMessage({ text: 'Delete failed', error: true })
+    }
+
+    setTimeout(() => setUploadMessage(null), 3000)
+  }
+
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
   }
@@ -205,11 +258,25 @@ function Dashboard() {
                 >
                   {label}
                 </div>
-                <div>
+                <div className="flex-1">
                   <p className="text-slate-900 dark:text-white font-medium">{doc.filename}</p>
                   <p className="text-slate-500 dark:text-slate-400 text-sm">
                     {doc.size_bytes} bytes
                   </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleDownload(doc.id, doc.filename)}
+                    className="text-sm px-3 py-1.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white"
+                  >
+                    Download
+                  </button>
+                  <button
+                    onClick={() => handleDelete(doc.id)}
+                    className="text-sm px-3 py-1.5 rounded-md bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             )

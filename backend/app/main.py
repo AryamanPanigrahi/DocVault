@@ -161,9 +161,11 @@ def delete_document(
     if document.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this document")
 
-    minio_client.remove_object(BUCKET_NAME, document.file_path)
+    try:
+        minio_client.remove_object(BUCKET_NAME, document.file_path)
+    except Exception as e:
+        print(f"Warning: could not remove file from MinIO (may already be missing): {e}")
 
     db.delete(document)
     db.commit()
-
     return {"detail": "Document deleted successfully"}
