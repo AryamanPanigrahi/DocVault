@@ -283,3 +283,25 @@
 - Next step: build real Login and Signup forms that actually call the
   FastAPI backend (POST /login, POST /signup) — first real frontend-
   to-backend connection
+
+## Current state (last updated: 2026-08-14)
+- Phase 1: backend feature-complete, frontend login flow working end-to-end
+- Frontend: React + TypeScript + Tailwind + React Router all confirmed
+  working together. Login page is fully functional — real form,
+  useState for controlled inputs, calls POST /login on the FastAPI
+  backend, stores the returned JWT in localStorage, redirects to
+  dashboard on success, shows error message on failure.
+- Fixed:
+  - Backend startup was silently failing (MinIO container was
+    stopped, so ensure_bucket_exists() crashed on startup) — always
+    confirm Docker Desktop + `docker ps` shows both containers Up
+    before starting the backend.
+  - CORS: browser blocked frontend (localhost:5173) from reading
+    backend (127.0.0.1:8000) responses by default. Added
+    CORSMiddleware to FastAPI, explicitly allowing the frontend's
+    origin — standard, expected setup for any separate frontend/
+    backend, not something /docs ever needed since it's same-origin.
+- Next step: Signup page (same pattern as Login), then attach the
+  stored JWT to future requests (documents list, upload, etc.) and
+  build route protection so unauthenticated users get redirected to
+  /login
