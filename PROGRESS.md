@@ -355,3 +355,48 @@
   Dashboard's refined palette), pptx badge color fix, minor UX
   cleanup (sidebar "Trash" nav item is currently a non-functional
   placeholder — decide whether to remove or defer to Phase 4)
+## Current state (last updated: 2026-08-15)
+- Phase 1: functionally complete + substantial visual/UX polish pass
+- New backend: GET /me — returns current user's own info via
+  get_current_user dependency, reusing existing auth verification.
+  Tested via /docs before wiring into frontend.
+- Dashboard redesign:
+  - Real file size formatting (KB/MB) and relative timestamps
+    ("2h ago") via new src/utils/format.ts, replacing raw numbers
+  - Real empty state (dashed panel, clear heading/subtext) replacing
+    plain "No documents yet" text
+  - Document cards: hover border feedback, Download/Delete buttons
+    now hover-revealed (group/opacity pattern) for a calmer default view
+  - Honest usage stats line: live document count + total size,
+    computed from real data via .reduce(), no invented metrics
+  - Search bar elevated to a primary action row next to Upload
+  - Real user identity: avatar initial + email in sidebar, sourced
+    from the new /me endpoint (replaced an earlier JWT-decoding hack
+    that wouldn't have worked since the token only stores user id,
+    not email)
+- Branding: custom logo (Logo.tsx component + standalone favicon.svg),
+  used across sidebar, Login, Signup, browser tab
+- Full feature set: auth, upload, search (OCR + filename), download,
+  delete, theming, all polished and tested
+
+## Current state (last updated: 2026-08-15)
+- Phase 1: functionally complete + full visual/UX polish pass DONE
+- [everything from previous entry stays as-is]
+
+## Next feature stage: Trash / Soft Delete
+- Scope: this is a real feature stage, not a quick add — requires:
+  - New Alembic migration: add nullable `deleted_at` column to
+    Document model
+  - Update list_documents, search_documents, download_document to
+    exclude soft-deleted documents by default (filter deleted_at IS NULL)
+  - New DELETE /documents/{id} behavior: soft-delete (set deleted_at)
+    instead of permanent removal + MinIO cleanup
+  - New endpoints: GET /documents/trash (list soft-deleted),
+    POST /documents/{id}/restore, and a separate genuinely-permanent
+    DELETE /documents/{id}/permanent (only from within trash view)
+  - Frontend: new Trash page/view, restore button, permanent-delete
+    confirmation (now two distinct delete actions to design clearly
+    for, not just one)
+- Plan: build with the same role/purpose-first, one-piece-at-a-time
+  rhythm as every other backend stage (start fresh next session, not
+  tacked onto an already-long one)
