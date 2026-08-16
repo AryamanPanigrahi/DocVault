@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getFileTypeInfo } from '../utils/fileType'
+import { formatBytes, formatRelativeTime } from '../utils/format'
 import useTheme from '../hooks/useTheme'
+import Logo from '../components/Logo'
 
 interface Document {
   id: number
@@ -11,9 +13,14 @@ interface Document {
   uploaded_at: string
 }
 
+interface UserInfo {
+  email: string
+}
+
 function Dashboard() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<UserInfo | null>(null)
   const navigate = useNavigate()
   const { theme, toggleTheme } = useTheme()
   const [uploading, setUploading] = useState(false)
@@ -21,29 +28,48 @@ function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('')
   const [searching, setSearching] = useState(false)
 
+  function handleUnauthorized() {
+    localStorage.removeItem('access_token')
+    navigate('/login')
+  }
+
   async function fetchDocuments() {
-  const token = localStorage.getItem('access_token')
+    const token = localStorage.getItem('access_token')
 
-  const response = await fetch('http://127.0.0.1:8000/documents', {
-    headers: { Authorization: `Bearer ${token}` },
-  })
+    const response = await fetch('http://127.0.0.1:8000/documents', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
 
-  if (response.status === 401) {
-    handleUnauthorized()
-    return
+    if (response.status === 401) {
+      handleUnauthorized()
+      return
+    }
+
+    if (response.ok) {
+      const data = await response.json()
+      setDocuments(data)
+    }
+
+    setLoading(false)
   }
-
-  if (response.ok) {
-    const data = await response.json()
-    setDocuments(data)
-  }
-
-  setLoading(false)
-}
 
   useEffect(() => {
     fetchDocuments()
+    fetchCurrentUser()
   }, [])
+
+  async function fetchCurrentUser() {
+    const token = localStorage.getItem('access_token')
+
+    const response = await fetch('http://127.0.0.1:8000/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      setUser({ email: data.email })
+    }
+  }
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
@@ -79,10 +105,15 @@ function Dashboard() {
     setSearching(false)
   }
 
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault()
+  }
+
   function handleLogout() {
     localStorage.removeItem('access_token')
     navigate('/login')
   }
+
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
@@ -115,10 +146,6 @@ function Dashboard() {
     e.target.value = ''
     setTimeout(() => setUploadMessage(null), 3000)
   }
-  function handleUnauthorized() {
-  localStorage.removeItem('access_token')
-  navigate('/login')
-}
 
   async function handleDownload(id: number, filename: string) {
     const token = localStorage.getItem('access_token')
@@ -173,28 +200,31 @@ function Dashboard() {
     setTimeout(() => setUploadMessage(null), 3000)
   }
 
-  function handleSearch(e: React.FormEvent) {
-    e.preventDefault()
-  }
+  const totalBytes = documents.reduce((sum, doc) => sum + (doc.size_bytes ?? 0), 0)
+
   return (
     <div className="min-h-screen flex bg-white dark:bg-app-bg">
       <aside className="w-56 shrink-0 border-r border-slate-200 dark:border-app-border p-6 flex flex-col justify-between">
         <div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-8">DocVault</h2>
+          <div className="mb-8">
+            <Logo size={32} />
+          </div>
           <nav className="flex flex-col gap-1">
             <span className="px-3 py-2 rounded-md bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white text-sm font-medium">
               All Documents
             </span>
-            <span className="px-3 py-2 rounded-md text-slate-500 dark:text-slate-400 text-sm">
-              Recent
-            </span>
-            <span className="px-3 py-2 rounded-md text-slate-500 dark:text-slate-400 text-sm">
-              Trash
-            </span>
           </nav>
         </div>
 
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-3">
+          {user && (
+            <div className="flex items-center gap-2 px-1 mb-1">
+              <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
+                {user.email.charAt(0).toUpperCase()}
+              </div>
+              <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</span>
+            </div>
+          )}
           <button
             onClick={toggleTheme}
             className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-3 py-2 rounded-md text-sm"
@@ -210,39 +240,44 @@ function Dashboard() {
         </div>
       </aside>
 
-      <main className="flex-1 p-8"><h1 className="text-3xl text-slate-900 dark:text-white font-bold mb-6">Your Documents</h1>
+      <main className="flex-1 p-8 max-w-4xl">
+        <div className="flex items-baseline justify-between mb-1">
+          <h1 className="text-3xl text-slate-900 dark:text-white font-bold">Your Documents</h1>
+        </div>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
+          {documents.length} {documents.length === 1 ? 'document' : 'documents'} · {formatBytes(totalBytes)} total
+        </p>
 
-        <form onSubmit={handleSearch} className="mb-6 flex gap-2">
-          <input
-            type="text"
-            placeholder="Search documents..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-3 py-2 rounded-md text-sm border border-slate-200 dark:border-app-border w-64"
-          />
-          <button
-            type="submit"
-            className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-4 py-2 rounded-md text-sm"
-          >
-            {searching ? 'Searching...' : 'Search'}
-          </button>
-        </form>
-        
-        <label className="inline-block mb-6 cursor-pointer">
-          <span className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium">
-            {uploading ? 'Uploading...' : '+ Upload Document'}
-          </span>
-          <input
-            type="file"
-            onChange={handleFileUpload}
-            disabled={uploading}
-            className="hidden"
-          />
-        </label>
-        {loading && <p className="text-slate-500 dark:text-slate-400">Loading...</p>}
+        <div className="flex gap-2 mb-6">
+          <label className="cursor-pointer">
+            <span className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium inline-block">
+              {uploading ? 'Uploading...' : '+ Upload Document'}
+            </span>
+            <input type="file" onChange={handleFileUpload} disabled={uploading} className="hidden" />
+          </label>
 
-        {!loading && documents.length === 0 && (
-          <p className="text-slate-500 dark:text-slate-400">No documents yet.</p>
+          <form onSubmit={handleSearch} className="flex-1 flex gap-2 max-w-sm">
+            <input
+              type="text"
+              placeholder="Search documents..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-3 py-2 rounded-md text-sm border border-slate-200 dark:border-app-border"
+            />
+          </form>
+        </div>
+
+        {loading && (
+          <p className="text-slate-500 dark:text-slate-400 text-sm">Loading your documents...</p>
+        )}
+
+        {!loading && !searching && documents.length === 0 && (
+          <div className="border border-dashed border-slate-300 dark:border-app-border rounded-lg p-12 text-center">
+            <p className="text-slate-900 dark:text-white font-medium mb-1">No documents yet</p>
+            <p className="text-slate-500 dark:text-slate-400 text-sm">
+              Upload your first document to get started.
+            </p>
+          </div>
         )}
 
         <div className="flex flex-col gap-2">
@@ -251,20 +286,20 @@ function Dashboard() {
             return (
               <div
                 key={doc.id}
-                className="bg-slate-100 dark:bg-app-surface p-4 rounded-lg flex items-center gap-4 border border-slate-200 dark:border-app-border"
+                className="group bg-slate-100 dark:bg-app-surface p-4 rounded-lg flex items-center gap-4 border border-slate-200 dark:border-app-border hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
               >
                 <div
                   className={`${color} text-white text-xs font-bold w-10 h-10 rounded-lg flex items-center justify-center shrink-0`}
                 >
                   {label}
                 </div>
-                <div className="flex-1">
-                  <p className="text-slate-900 dark:text-white font-medium">{doc.filename}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-slate-900 dark:text-white font-medium truncate">{doc.filename}</p>
                   <p className="text-slate-500 dark:text-slate-400 text-sm">
-                    {doc.size_bytes} bytes
+                    {formatBytes(doc.size_bytes)} · {formatRelativeTime(doc.uploaded_at)}
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
                     onClick={() => handleDownload(doc.id, doc.filename)}
                     className="text-sm px-3 py-1.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white"
@@ -282,7 +317,8 @@ function Dashboard() {
             )
           })}
         </div>
-      {uploadMessage && (
+
+        {uploadMessage && (
           <div
             className={`fixed bottom-6 left-6 px-4 py-3 rounded-lg text-sm text-white shadow-lg backdrop-blur-sm ${
               uploadMessage.error ? 'bg-red-600/90' : 'bg-green-600/90'

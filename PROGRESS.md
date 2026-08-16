@@ -326,3 +326,32 @@
 - Remaining for Phase 1: upload UI (drag-drop or file picker), search
   bar wired to GET /documents/search, download/delete buttons on each
   document card, logout functionality
+
+## Current state (last updated: 2026-08-15)
+- Phase 1: FULL STACK FUNCTIONALLY COMPLETE
+- Frontend: React + TypeScript + Tailwind + React Router, all core
+  features working against the real backend:
+  - Login/Signup with proper error handling
+  - Route protection (redirects unauthenticated users)
+  - Dashboard: live document list, sidebar nav, dark/light theme
+    toggle (system-aware, centralized via Tailwind @theme tokens)
+  - Upload: real file upload, auto-refreshing list, toast feedback,
+    expired-token detection -> auto-redirect to login
+  - Search: debounced live search across filename + OCR extracted
+    text, verified correct on both dimensions
+  - Download: triggers real browser file-save via Blob + object URL
+  - Delete: confirmation dialog, removes from both MinIO and Postgres,
+    defensive try/except around MinIO removal (handles already-missing
+    files gracefully after a discovered Postgres/MinIO sync issue)
+- Fixed today (recurring themes):
+  - Multiple "code correct but not taking effect" bugs — always
+    stale dev server or unsaved file, not bad code. Lesson holds
+    across both backend and frontend.
+  - Postgres/MinIO can fall out of sync if an operation is interrupted
+    (e.g., mid-restart). No full transactional guarantee across the
+    two systems yet — deliberately not over-engineered for Phase 1,
+    noted as a known limitation.
+- Remaining: visual polish (Login/Signup styling catch-up to match
+  Dashboard's refined palette), pptx badge color fix, minor UX
+  cleanup (sidebar "Trash" nav item is currently a non-functional
+  placeholder — decide whether to remove or defer to Phase 4)
