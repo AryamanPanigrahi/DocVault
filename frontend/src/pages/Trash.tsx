@@ -1,0 +1,165 @@
+import { useEffect, useState } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
+import { getFileTypeInfo } from '../utils/fileType'
+import { formatBytes } from '../utils/format'
+import Logo from '../components/Logo'
+
+interface Document {
+  id: number
+  filename: string
+  content_type: string | null
+  size_bytes: number | null
+  uploaded_at: string
+}
+
+function Trash() {
+  const [documents, setDocuments] = useState<Document[]>([])
+  const [loading, setLoading] = useState(true)
+  const navigate = useNavigate()
+
+  function handleUnauthorized() {
+    localStorage.removeItem('access_token')
+    navigate('/login')
+  }
+
+  async function fetchTrash() {
+    const token = localStorage.getItem('access_token')
+
+    const response = await fetch('http://127.0.0.1:8000/documents/trash', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (response.status === 401) {
+      handleUnauthorized()
+      return
+    }
+
+    if (response.ok) {
+      const data = await response.json()
+      setDocuments(data)
+    }
+
+    setLoading(false)
+  }
+
+  useEffect(() => {
+    fetchTrash()
+  }, [])
+
+  async function handleRestore(id: number) {
+    const token = localStorage.getItem('access_token')
+
+    const response = await fetch(`http://127.0.0.1:8000/documents/${id}/restore`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (response.status === 401) {
+      handleUnauthorized()
+      return
+    }
+
+    if (response.ok) {
+      setDocuments((prev) => prev.filter((doc) => doc.id !== id))
+    }
+  }
+
+  async function handlePermanentDelete(id: number) {
+    const confirmed = window.confirm(
+      'Permanently delete this document? This cannot be undone.'
+    )
+    if (!confirmed) return
+
+    const token = localStorage.getItem('access_token')
+
+    const response = await fetch(`http://127.0.0.1:8000/documents/${id}/permanent`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (response.status === 401) {
+      handleUnauthorized()
+      return
+    }
+
+    if (response.ok) {
+      setDocuments((prev) => prev.filter((doc) => doc.id !== id))
+    }
+  }
+
+  return (
+    <div className="min-h-screen flex bg-white dark:bg-app-bg">
+      <aside className="w-56 shrink-0 border-r border-slate-200 dark:border-app-border p-6">
+        <div className="mb-8">
+          <Logo size={32} />
+        </div>
+        <nav className="flex flex-col gap-1">
+          <Link
+            to="/"
+            className="px-3 py-2 rounded-md text-slate-500 dark:text-slate-400 text-sm"
+          >
+            All Documents
+          </Link>
+          <span className="px-3 py-2 rounded-md bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white text-sm font-medium">
+            Trash
+          </span>
+        </nav>
+      </aside>
+
+      <main className="flex-1 p-8 max-w-4xl">
+        <h1 className="text-3xl text-slate-900 dark:text-white font-bold mb-1">Trash</h1>
+        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
+            Documents here can be restored or permanently deleted.
+        </p>
+
+        {loading && <p className="text-slate-500 dark:text-slate-400 text-sm">Loading...</p>}
+
+        {!loading && documents.length === 0 && (
+          <div className="border border-dashed border-slate-300 dark:border-app-border rounded-lg p-12 text-center">
+            <p className="text-slate-900 dark:text-white font-medium mb-1">Trash is empty</p>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          {documents.map((doc) => {
+            const { label, color } = getFileTypeInfo(doc.content_type)
+            return (
+              <div
+                key={doc.id}
+                className="bg-slate-100 dark:bg-app-surface p-4 rounded-lg flex items-center gap-4 border border-slate-200 dark:border-app-border"
+              >
+                <div
+                  className={`${color} text-white text-xs font-bold w-10 h-10 rounded-lg flex items-center justify-center shrink-0`}
+                >
+                  {label}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-slate-900 dark:text-white font-medium truncate">{doc.filename}</p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                    {formatBytes(doc.size_bytes)}
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleRestore(doc.id)}
+                    className="text-sm px-3 py-1.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white"
+                  >
+                    Restore
+                  </button>
+                  <button
+                    onClick={() => handlePermanentDelete(doc.id)}
+                    className="text-sm px-3 py-1.5 rounded-md bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400"
+                  >
+                    Delete Forever
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </main>
+    </div>
+  )
+}
+
+export default Trash

@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from app.security import get_current_user
 from app import database, models, schemas
 from app.security import hash_password
@@ -97,6 +98,7 @@ def search_documents(
     results = (
         db.query(models.Document)
         .filter(models.Document.owner_id == current_user.id)
+        .filter(models.Document.deleted_at.is_(None))
         .filter(
             models.Document.extracted_text.ilike(f"%{q}%")
             | models.Document.filename.ilike(f"%{q}%")
@@ -118,9 +120,20 @@ def list_documents(
     return (
         db.query(models.Document)
         .filter(models.Document.owner_id == current_user.id)
+        .filter(models.Document.deleted_at.is_(None))
         .all()
     )
-
+@app.get("/documents/trash", response_model=list[schemas.DocumentOut])
+def list_trash(
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    return (
+        db.query(models.Document)
+        .filter(models.Document.owner_id == current_user.id)
+        .filter(models.Document.deleted_at.is_not(None))
+        .all()
+    )
 @app.get("/documents/{document_id}")
 def get_document(document_id: int, current_user: models.User = Depends(get_current_user)):
     return {
@@ -137,7 +150,12 @@ def download_document(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(get_current_user),
 ):
-    document = db.query(models.Document).filter(models.Document.id == document_id).first()
+    document = (
+        db.query(models.Document)
+        .filter(models.Document.id == document_id)
+        .filter(models.Document.deleted_at.is_(None))
+        .first()
+    )
 
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -152,7 +170,52 @@ def download_document(
         media_type=document.content_type,
         headers={"Content-Disposition": f'attachment; filename="{document.filename}"'},
     )
+
+
+
+@app.post("/documents/{document_id}/restore")
+def restore_document(
+    document_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    document = db.query(models.Document).filter(models.Document.id == document_id).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if document.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    document.deleted_at = None
+    db.commit()
+    return {"detail": "Document restored"}
+
+
+@app.delete("/documents/{document_id}/permanent")
+def permanently_delete_document(
+    document_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(get_current_user),
+):
+    document = db.query(models.Document).filter(models.Document.id == document_id).first()
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if document.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    try:
+        minio_client.remove_object(BUCKET_NAME, document.file_path)
+    except Exception as e:
+        print(f"Warning: could not remove file from MinIO (may already be missing): {e}")
+
+    db.delete(document)
+    db.commit()
+    return {"detail": "Document permanently deleted"}
+
+
 @app.delete("/documents/{document_id}")
+
 def delete_document(
     document_id: int,
     db: Session = Depends(database.get_db),
@@ -166,11 +229,6 @@ def delete_document(
     if document.owner_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this document")
 
-    try:
-        minio_client.remove_object(BUCKET_NAME, document.file_path)
-    except Exception as e:
-        print(f"Warning: could not remove file from MinIO (may already be missing): {e}")
-
-    db.delete(document)
+    document.deleted_at = func.now()
     db.commit()
-    return {"detail": "Document deleted successfully"}
+    return {"detail": "Document moved to trash"}

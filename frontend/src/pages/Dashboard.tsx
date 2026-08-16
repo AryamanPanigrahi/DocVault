@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { getFileTypeInfo } from '../utils/fileType'
 import { formatBytes, formatRelativeTime } from '../utils/format'
 import useTheme from '../hooks/useTheme'
@@ -213,6 +213,12 @@ function Dashboard() {
             <span className="px-3 py-2 rounded-md bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white text-sm font-medium">
               All Documents
             </span>
+            <Link
+              to="/trash"
+              className="px-3 py-2 rounded-md text-slate-500 dark:text-slate-400 text-sm"
+            >
+              Trash
+            </Link>
           </nav>
         </div>
 

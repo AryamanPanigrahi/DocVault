@@ -22,3 +22,4 @@ class Document(Base):
 
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     extracted_text = Column(String, nullable=True)
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
