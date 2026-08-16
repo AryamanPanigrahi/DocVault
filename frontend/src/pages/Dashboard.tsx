@@ -27,6 +27,9 @@ function Dashboard() {
   const [uploadMessage, setUploadMessage] = useState<{ text: string; error: boolean } | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searching, setSearching] = useState(false)
+  const [sortBy, setSortBy] = useState<'name' | 'date' | 'size'>('date')
+  const [sortMenuOpen, setSortMenuOpen] = useState(false)
+  const [dragging, setDragging] = useState(false)
 
   function handleUnauthorized() {
     localStorage.removeItem('access_token')
@@ -114,10 +117,7 @@ function Dashboard() {
     navigate('/login')
   }
 
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-
+  async function uploadFile(file: File) {
     setUploading(true)
     const token = localStorage.getItem('access_token')
 
@@ -143,9 +143,42 @@ function Dashboard() {
     }
 
     setUploading(false)
-    e.target.value = ''
     setTimeout(() => setUploadMessage(null), 3000)
   }
+
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    await uploadFile(file)
+    e.target.value = ''
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault()
+    setDragging(true)
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault()
+    setDragging(false)
+  }
+
+  async function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) await uploadFile(file)
+  }
+
+  useEffect(() => {
+    async function handlePaste(e: ClipboardEvent) {
+      const file = e.clipboardData?.files?.[0]
+      if (file) await uploadFile(file)
+    }
+
+    window.addEventListener('paste', handlePaste)
+    return () => window.removeEventListener('paste', handlePaste)
+  }, [])
 
   async function handleDownload(id: number, filename: string) {
     const token = localStorage.getItem('access_token')
@@ -202,6 +235,12 @@ function Dashboard() {
 
   const totalBytes = documents.reduce((sum, doc) => sum + (doc.size_bytes ?? 0), 0)
 
+  const sortedDocuments = [...documents].sort((a, b) => {
+    if (sortBy === 'name') return a.filename.localeCompare(b.filename)
+    if (sortBy === 'size') return (b.size_bytes ?? 0) - (a.size_bytes ?? 0)
+    return new Date(b.uploaded_at).getTime() - new Date(a.uploaded_at).getTime()
+  })
+
   return (
     <div className="min-h-screen flex bg-white dark:bg-app-bg">
       <aside className="w-56 shrink-0 border-r border-slate-200 dark:border-app-border p-6 flex flex-col justify-between">
@@ -246,21 +285,73 @@ function Dashboard() {
         </div>
       </aside>
 
-      <main className="flex-1 p-8 max-w-4xl">
+      <main
+        className="flex-1 p-8 max-w-4xl"
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <div className="flex items-baseline justify-between mb-1">
           <h1 className="text-3xl text-slate-900 dark:text-white font-bold">Your Documents</h1>
         </div>
         <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
-          {documents.length} {documents.length === 1 ? 'document' : 'documents'} · {formatBytes(totalBytes)} total
+          {documents.length} {documents.length === 1 ? 'document' : 'documents'} · {formatBytes(totalBytes)} total · drag &amp; drop files anywhere to upload
         </p>
 
-        <div className="flex gap-2 mb-6">
+        <div
+          className={`border-2 border-dashed rounded-xl p-6 mb-6 flex items-center justify-between transition-all ${
+            dragging
+              ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-[0_0_20px_rgba(59,130,246,0.4)]'
+              : 'border-slate-300 dark:border-app-border'
+          }`}
+        >
+          <div>
+            <p className="text-slate-900 dark:text-white font-medium text-sm">Add a document</p>
+            <p className="text-slate-500 dark:text-slate-400 text-xs">Drag & drop, paste, or click to browse</p>
+          </div>
           <label className="cursor-pointer">
             <span className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium inline-block">
-              {uploading ? 'Uploading...' : '+ Upload Document'}
+              {uploading ? 'Uploading...' : 'Upload'}
             </span>
             <input type="file" onChange={handleFileUpload} disabled={uploading} className="hidden" />
           </label>
+        </div>
+
+        <div className="flex gap-2 mb-6">
+          <div className="relative">
+            <button
+              onClick={() => setSortMenuOpen((prev) => !prev)}
+              className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white p-2.5 rounded-md border border-slate-200 dark:border-app-border"
+              title="Sort"
+            >
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                <line x1="2" y1="5" x2="16" y2="5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <line x1="2" y1="9" x2="11" y2="9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <line x1="2" y1="13" x2="6" y2="13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            {sortMenuOpen && (
+              <div className="absolute top-full mt-1 left-0 bg-white dark:bg-app-surface border border-slate-200 dark:border-app-border rounded-md shadow-lg py-1 w-40 z-10">
+                {(['date', 'name', 'size'] as const).map((option) => (
+                  <button
+                    key={option}
+                    onClick={() => {
+                      setSortBy(option)
+                      setSortMenuOpen(false)
+                    }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 ${
+                      sortBy === option
+                        ? 'text-blue-600 dark:text-blue-400 font-medium'
+                        : 'text-slate-700 dark:text-slate-300'
+                    }`}
+                  >
+                    {option === 'date' ? 'Newest first' : option === 'name' ? 'Name (A-Z)' : 'Largest first'}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <form onSubmit={handleSearch} className="flex-1 flex gap-2 max-w-sm">
             <input
@@ -278,16 +369,15 @@ function Dashboard() {
         )}
 
         {!loading && !searching && documents.length === 0 && (
-          <div className="border border-dashed border-slate-300 dark:border-app-border rounded-lg p-12 text-center">
-            <p className="text-slate-900 dark:text-white font-medium mb-1">No documents yet</p>
+          <div className="text-center py-12">
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Upload your first document to get started.
+              Nothing here yet — use the box above to add your first document.
             </p>
           </div>
         )}
 
         <div className="flex flex-col gap-2">
-          {documents.map((doc) => {
+          {sortedDocuments.map((doc) => {
             const { label, color } = getFileTypeInfo(doc.content_type)
             return (
               <div

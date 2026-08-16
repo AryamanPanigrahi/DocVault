@@ -400,3 +400,27 @@
 - Plan: build with the same role/purpose-first, one-piece-at-a-time
   rhythm as every other backend stage (start fresh next session, not
   tacked onto an already-long one)
+## Current state (last updated: 2026-08-16)
+- Phase 1: functionally complete, fully polished, trash feature DONE
+- Backend: deleted_at column added via Alembic migration. All
+  document-reading routes (list, search, download) now filter out
+  soft-deleted documents. DELETE /documents/{id} now soft-deletes
+  (sets deleted_at) instead of permanent removal. New routes:
+  GET /documents/trash, POST /documents/{id}/restore,
+  DELETE /documents/{id}/permanent (the only truly destructive one,
+  handles MinIO + Postgres cleanup with defensive error handling).
+- Frontend: new Trash.tsx page (separate route, not a toggled
+  Dashboard view — deliberate choice, matches how real file managers
+  like Google Drive handle this), Restore and Delete Forever buttons,
+  sidebar "Trash" link now functional.
+- Fixed: /documents/trash hit the exact same route-ordering bug as
+  /documents/search weeks ago (generic {document_id} route defined
+  before the literal one). Third time hitting this class of bug —
+  genuinely internalized now: any literal-segment route must be
+  defined above any {variable} route sharing that path position.
+- Verified end-to-end at every layer: frontend UI, backend /docs
+  response, and direct Postgres query, for delete, restore, and
+  permanent delete all separately.
+- Full feature set: auth, upload, search, download, soft delete +
+  trash (restore/permanent delete), theming, branding — Phase 1 is
+  genuinely feature-complete.
