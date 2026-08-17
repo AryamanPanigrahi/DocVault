@@ -21,6 +21,7 @@ class DocumentOut(BaseModel):
     content_type: str | None
     size_bytes: int | None
     uploaded_at: datetime
+    extracted_text: str | None
 
     class Config:
         from_attributes = True

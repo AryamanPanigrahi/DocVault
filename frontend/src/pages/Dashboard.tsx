@@ -11,6 +11,7 @@ interface Document {
   content_type: string | null
   size_bytes: number | null
   uploaded_at: string
+  extracted_text: string | null
 }
 
 interface UserInfo {
@@ -30,6 +31,8 @@ function Dashboard() {
   const [sortBy, setSortBy] = useState<'name' | 'date' | 'size'>('date')
   const [sortMenuOpen, setSortMenuOpen] = useState(false)
   const [dragging, setDragging] = useState(false)
+  const [selectedDoc, setSelectedDoc] = useState<Document | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
 
   function handleUnauthorized() {
     localStorage.removeItem('access_token')
@@ -169,6 +172,46 @@ function Dashboard() {
     const file = e.dataTransfer.files?.[0]
     if (file) await uploadFile(file)
   }
+
+  useEffect(() => {
+    if (!selectedDoc) return
+
+    let objectUrl: string | null = null
+
+    async function loadPreview() {
+      const canPreview =
+        selectedDoc!.content_type === 'application/pdf' ||
+        selectedDoc!.content_type?.startsWith('image/')
+
+      if (!canPreview) {
+        setPreviewUrl(null)
+        return
+      }
+
+      const token = localStorage.getItem('access_token')
+      const response = await fetch(
+        `http://127.0.0.1:8000/documents/${selectedDoc!.id}/download`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+
+      if (response.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      if (response.ok) {
+        const blob = await response.blob()
+        objectUrl = window.URL.createObjectURL(blob)
+        setPreviewUrl(objectUrl)
+      }
+    }
+
+    loadPreview()
+
+    return () => {
+      if (objectUrl) window.URL.revokeObjectURL(objectUrl)
+    }
+  }, [selectedDoc])
 
   useEffect(() => {
     async function handlePaste(e: ClipboardEvent) {
@@ -382,7 +425,11 @@ function Dashboard() {
             return (
               <div
                 key={doc.id}
-                className="group bg-slate-100 dark:bg-app-surface p-4 rounded-lg flex items-center gap-4 border border-slate-200 dark:border-app-border hover:border-slate-300 dark:hover:border-slate-600 transition-colors"
+                onClick={() => {
+                  setPreviewUrl(null)
+                  setSelectedDoc(doc)
+                }}
+                className="group bg-slate-100 dark:bg-app-surface p-4 rounded-lg flex items-center gap-4 border border-slate-200 dark:border-app-border hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer"
               >
                 <div
                   className={`${color} text-white text-xs font-bold w-10 h-10 rounded-lg flex items-center justify-center shrink-0`}
@@ -395,7 +442,10 @@ function Dashboard() {
                     {formatBytes(doc.size_bytes)} · {formatRelativeTime(doc.uploaded_at)}
                   </p>
                 </div>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div
+                  className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <button
                     onClick={() => handleDownload(doc.id, doc.filename)}
                     className="text-sm px-3 py-1.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white"
@@ -421,6 +471,91 @@ function Dashboard() {
             }`}
           >
             {uploadMessage.text}
+          </div>
+        )}
+
+        {selectedDoc && (
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-6"
+            onClick={() => {
+              setSelectedDoc(null)
+              setPreviewUrl(null)
+            }}
+          >
+            <div
+              className="bg-white dark:bg-app-surface rounded-2xl max-w-4xl w-full h-[90vh] overflow-hidden flex flex-col shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-6 border-b border-slate-200 dark:border-app-border flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-slate-900 dark:text-white font-semibold break-words">
+                    {selectedDoc.filename}
+                  </p>
+                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+                    {formatBytes(selectedDoc.size_bytes)} · {formatRelativeTime(selectedDoc.uploaded_at)}
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedDoc(null)
+                    setPreviewUrl(null)
+                  }}
+                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none shrink-0"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="overflow-y-auto flex-1">
+                {previewUrl && selectedDoc.content_type?.startsWith('image/') && (
+                  <div className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-black/20 p-4">
+                    <img src={previewUrl} alt={selectedDoc.filename} className="max-w-full max-h-full object-contain" />
+                  </div>
+                )}
+
+                {previewUrl && selectedDoc.content_type === 'application/pdf' && (
+                  <iframe src={previewUrl} title={selectedDoc.filename} className="w-full h-full min-h-[75vh]" />
+                )}
+
+                {!previewUrl &&
+                  (selectedDoc.content_type === 'application/pdf' ||
+                    selectedDoc.content_type?.startsWith('image/')) && (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <p className="text-slate-400 dark:text-slate-500 text-sm">Loading preview...</p>
+                    </div>
+                  )}
+
+                {!previewUrl &&
+                  !(
+                    selectedDoc.content_type === 'application/pdf' ||
+                    selectedDoc.content_type?.startsWith('image/')
+                  ) && (
+                  <div className="p-6">
+                    <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wide mb-2">
+                      Extracted text
+                    </p>
+                    {selectedDoc.extracted_text ? (
+                      <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap">
+                        {selectedDoc.extracted_text}
+                      </p>
+                    ) : (
+                      <p className="text-slate-400 dark:text-slate-500 text-sm italic">
+                        No preview or extracted text available for this file type.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="p-4 border-t border-slate-200 dark:border-app-border flex gap-2 justify-end">
+                <button
+                  onClick={() => handleDownload(selectedDoc.id, selectedDoc.filename)}
+                  className="text-sm px-4 py-2 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white"
+                >
+                  Download
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </main>

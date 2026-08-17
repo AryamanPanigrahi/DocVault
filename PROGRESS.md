@@ -424,3 +424,20 @@
 - Full feature set: auth, upload, search, download, soft delete +
   trash (restore/permanent delete), theming, branding — Phase 1 is
   genuinely feature-complete.
+## Current state (last updated: 2026-08-16)
+- Phase 1: feature-complete + trash + sorting/drag-drop/paste upload
+- Dashboard additions:
+  - Sort control (compact icon button + dropdown): Newest, Name A-Z,
+    Largest — client-side sort on existing data, no new backend calls
+  - Drag-and-drop upload: page-wide drop detection, but visual
+    feedback consolidated to one persistent banner (glows on drag)
+    rather than a full-page overlay, after iterating past a redundant
+    double-box issue
+  - Paste-to-upload: window-level clipboard listener, reuses the same
+    uploadFile() function as click/drag (refactored handleFileUpload
+    into a shared uploadFile(file) + thin per-trigger wrappers)
+  - Persistent "Add a document" banner always visible (not just in
+    empty state) for discoverability
+- Next: document detail view showing OCR extracted text — the last
+  planned addition, needs a small backend change first (extracted_text
+  isn't currently exposed via DocumentOut schema)
