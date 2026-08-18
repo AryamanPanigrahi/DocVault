@@ -5,6 +5,7 @@ import { formatBytes, formatRelativeTime } from '../utils/format'
 import useTheme from '../hooks/useTheme'
 import Sidebar from '../components/Sidebar'
 import MobileTopBar from '../components/MobileTopBar'
+import { API_URL } from '../config'
 
 interface Document {
   id: number
@@ -44,7 +45,7 @@ function Dashboard() {
   async function fetchDocuments() {
     const token = localStorage.getItem('access_token')
 
-    const response = await fetch('http://127.0.0.1:8000/documents', {
+    const response = await fetch(`${API_URL}/documents`, {
       headers: { Authorization: `Bearer ${token}` },
     })
 
@@ -69,7 +70,7 @@ function Dashboard() {
   async function fetchCurrentUser() {
     const token = localStorage.getItem('access_token')
 
-    const response = await fetch('http://127.0.0.1:8000/me', {
+    const response = await fetch(`${API_URL}/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
 
@@ -96,7 +97,7 @@ function Dashboard() {
     const token = localStorage.getItem('access_token')
 
     const response = await fetch(
-      `http://127.0.0.1:8000/documents/search?q=${encodeURIComponent(searchQuery)}`,
+      `${API_URL}/documents/search?q=${encodeURIComponent(searchQuery)}`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
 
@@ -129,7 +130,7 @@ function Dashboard() {
     const formData = new FormData()
     formData.append('file', file)
 
-    const response = await fetch('http://127.0.0.1:8000/documents/upload', {
+    const response = await fetch(`${API_URL}/documents/upload`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
       body: formData,
@@ -192,7 +193,7 @@ function Dashboard() {
 
       const token = localStorage.getItem('access_token')
       const response = await fetch(
-        `http://127.0.0.1:8000/documents/${selectedDoc!.id}/download`,
+        `${API_URL}/documents/${selectedDoc!.id}/download`,
         { headers: { Authorization: `Bearer ${token}` } }
       )
 
@@ -242,7 +243,7 @@ function Dashboard() {
   async function handleDownload(id: number, filename: string) {
     const token = localStorage.getItem('access_token')
 
-    const response = await fetch(`http://127.0.0.1:8000/documents/${id}/download`, {
+    const response = await fetch(`${API_URL}/documents/${id}/download`, {
       headers: { Authorization: `Bearer ${token}` },
     })
 
@@ -272,7 +273,7 @@ function Dashboard() {
 
     const token = localStorage.getItem('access_token')
 
-    const response = await fetch(`http://127.0.0.1:8000/documents/${id}`, {
+    const response = await fetch(`${API_URL}/documents/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     })

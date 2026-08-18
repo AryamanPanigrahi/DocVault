@@ -5,6 +5,7 @@ import { formatBytes } from '../utils/format'
 import useTheme from '../hooks/useTheme'
 import Sidebar from '../components/Sidebar'
 import MobileTopBar from '../components/MobileTopBar'
+import { API_URL } from '../config'
 
 interface Document {
   id: number
@@ -34,7 +35,7 @@ function Trash() {
   async function fetchTrash() {
     const token = localStorage.getItem('access_token')
 
-    const response = await fetch('http://127.0.0.1:8000/documents/trash', {
+    const response = await fetch(`${API_URL}/documents/trash`, {
       headers: { Authorization: `Bearer ${token}` },
     })
 
@@ -59,7 +60,7 @@ function Trash() {
   async function fetchCurrentUser() {
     const token = localStorage.getItem('access_token')
 
-    const response = await fetch('http://127.0.0.1:8000/me', {
+    const response = await fetch(`${API_URL}/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
 
@@ -77,7 +78,7 @@ function Trash() {
   async function handleRestore(id: number) {
     const token = localStorage.getItem('access_token')
 
-    const response = await fetch(`http://127.0.0.1:8000/documents/${id}/restore`, {
+    const response = await fetch(`${API_URL}/documents/${id}/restore`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` },
     })
@@ -100,7 +101,7 @@ function Trash() {
 
     const token = localStorage.getItem('access_token')
 
-    const response = await fetch(`http://127.0.0.1:8000/documents/${id}/permanent`, {
+    const response = await fetch(`${API_URL}/documents/${id}/permanent`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${token}` },
     })
