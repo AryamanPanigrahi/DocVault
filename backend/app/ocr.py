@@ -1,9 +1,11 @@
 import io
+import os
 import pytesseract
 from PIL import Image
 import fitz
 
-pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+if os.name == "nt":
+    pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 
 def extract_text_from_image(file_bytes: bytes) -> str:

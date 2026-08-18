@@ -462,3 +462,88 @@
   Correctly falls back to text/metadata view.
 - Phase 1 is now genuinely complete: full auth, storage, OCR search,
   CRUD, trash, theming, branding, and a polished, tested UI.
+## Current state (last updated: 2026-08-17)
+- Phase 1: fully complete, major design pass on auth pages done
+- AuthLayout: rebuilt from split-screen to landing-page-style hero
+  (headline + form side by side, "Why DocVault" section below with
+  feature grid + framed dashboard mockup). Login and Signup now have
+  distinctly different headline/copy so they're immediately
+  distinguishable, not just relabeled versions of each other.
+- Fixed: dark mode was silently broken everywhere (Dashboard, Trash,
+  and the new AuthLayout) — Tailwind v4 defaults to
+  prefers-color-scheme-only for dark: variants and does NOT respond
+  to a manually toggled .dark class without explicit opt-in. Fixed via
+  `@custom-variant dark (&:where(.dark, .dark *));` in index.css. This
+  had likely been subtly broken for a while and coincidentally looked
+  correct during earlier testing if system preference happened to
+  match.
+- Next: switching primary work to Claude Code (user now has Pro) for
+  remaining work — starting with deployment planning. CLAUDE.md and
+  this file are the handoff context; open Claude Code from the
+  DocVault root, not backend/ or frontend/ specifically.
+
+## Current state (last updated: 2026-08-18)
+- Phase 1 complete. Now mid-deployment, working in Claude Code.
+- Deployment plan: Render (backend, Docker) + Neon (Postgres) +
+  Backblaze B2 (object storage) + Vercel (frontend). Originally
+  scoped for a self-hosted Oracle Cloud VM + Cloudflare R2, but
+  Oracle's card verification hold failed (international transactions
+  disabled on the only card available), and Cloudflare R2 turned out
+  to also require a card despite advertising otherwise — switched to
+  an entirely card-free stack instead.
+- Backend containerized: new `backend/Dockerfile` (multi-stage build
+  via uv, installs `tesseract-ocr` system package in the final stage)
+  and `backend/.dockerignore`. Verified end-to-end via
+  `docker compose up backend` against the real local Postgres/MinIO
+  containers — DB queries, storage, and OCR (tesseract binary) all
+  confirmed working inside the container before touching any real
+  infra.
+- Fixed a recurring bug class while containerizing: `ocr.py`,
+  `storage.py`, `database.py`, and `alembic/env.py` all had
+  Windows-only or `localhost`-hardcoded values that would silently
+  break under Docker networking or on a real host. All now read from
+  env vars with sensible local-dev defaults preserved
+  (`POSTGRES_HOST`, `STORAGE_ENDPOINT`, and a `DATABASE_URL` full-URL
+  override for providers like Neon that require a single connection
+  string with `sslmode=require`).
+- Neon: project created, migrations (`alembic upgrade head`) applied
+  successfully — `users`/`documents` tables confirmed live via a
+  direct query, not just by trusting Alembic's output.
+- Backblaze B2: bucket `DocVault-documents` created, application key
+  scoped to just that bucket. `storage.py` now resolves
+  access/secret key from `B2_KEY_ID`/`B2_APPLICATION_KEY` (falling
+  back to the old `MINIO_ROOT_USER`/`MINIO_ROOT_PASSWORD` names for
+  local dev), and `BUCKET_NAME` is now env-driven instead of
+  hardcoded to `"documents"` (B2 bucket names are globally unique
+  across all users, so the prod name necessarily differs from local).
+  Verified with a real put/get/delete round-trip against the live
+  bucket, not just a reachability check. Caught and fixed a real
+  region mismatch along the way (`.env` had `us-west-004`, actual
+  bucket was in `ca-east-006`).
+- Frontend: fixed the sidebar being non-static (scrolled away with
+  page content instead of staying pinned) — wrapper changed from
+  `min-h-screen` to `h-screen`, `<main>` given its own
+  `overflow-y-auto`. Also fixed a follow-on bug this introduced
+  (`<main>` had both `flex-1` and `max-w-4xl`, so the scrollbar ended
+  up stranded mid-screen instead of at the true window edge) by
+  moving the width cap to an inner `mx-auto` wrapper instead.
+- Mobile layout was essentially unusable before this pass (only
+  `AuthLayout` had any responsive breakpoints) — rebuilt Dashboard
+  and Trash's sidebar into a shared `Sidebar.tsx` + `MobileTopBar.tsx`
+  (hamburger + slide-in drawer below the `md` breakpoint), and fixed
+  document rows collapsing filenames to 0px width on narrow screens
+  (icon + always-visible action buttons alone exceeded the row width)
+  via `flex-wrap` and a floor width on the name column. Also fixed
+  Download/Delete being unreachable on touch devices — they were
+  hover-only (`opacity-0 group-hover:opacity-100`), which doesn't
+  trigger on touch; now always visible below `md`.
+- Trash page was also missing the theme toggle, user email, and
+  logout entirely (Dashboard had them, Trash never did) — fixed as
+  part of extracting the shared Sidebar component.
+- Small correctness fixes: search-with-no-results was showing "add
+  your first document" instead of a "no matches" message; truncated
+  filenames had no hover tooltip; Esc didn't close the document
+  preview modal.
+- Next: Render (backend deploy) and Vercel (frontend deploy) are the
+  only two pieces left. Neon and B2 are both fully wired and verified
+  working end-to-end.

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { getFileTypeInfo } from '../utils/fileType'
 import { formatBytes } from '../utils/format'
-import Logo from '../components/Logo'
+import useTheme from '../hooks/useTheme'
+import Sidebar from '../components/Sidebar'
+import MobileTopBar from '../components/MobileTopBar'
 
 interface Document {
   id: number
@@ -12,10 +14,17 @@ interface Document {
   uploaded_at: string
 }
 
+interface UserInfo {
+  email: string
+}
+
 function Trash() {
   const [documents, setDocuments] = useState<Document[]>([])
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<UserInfo | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const navigate = useNavigate()
+  const { theme, toggleTheme } = useTheme()
 
   function handleUnauthorized() {
     localStorage.removeItem('access_token')
@@ -44,7 +53,26 @@ function Trash() {
 
   useEffect(() => {
     fetchTrash()
+    fetchCurrentUser()
   }, [])
+
+  async function fetchCurrentUser() {
+    const token = localStorage.getItem('access_token')
+
+    const response = await fetch('http://127.0.0.1:8000/me', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      setUser({ email: data.email })
+    }
+  }
+
+  function handleLogout() {
+    localStorage.removeItem('access_token')
+    navigate('/login')
+  }
 
   async function handleRestore(id: number) {
     const token = localStorage.getItem('access_token')
@@ -88,25 +116,20 @@ function Trash() {
   }
 
   return (
-    <div className="min-h-screen flex bg-white dark:bg-app-bg">
-      <aside className="w-56 shrink-0 border-r border-slate-200 dark:border-app-border p-6">
-        <div className="mb-8">
-          <Logo size={32} />
-        </div>
-        <nav className="flex flex-col gap-1">
-          <Link
-            to="/"
-            className="px-3 py-2 rounded-md text-slate-500 dark:text-slate-400 text-sm"
-          >
-            All Documents
-          </Link>
-          <span className="px-3 py-2 rounded-md bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white text-sm font-medium">
-            Trash
-          </span>
-        </nav>
-      </aside>
+    <div className="h-screen flex bg-white dark:bg-app-bg">
+      <Sidebar
+        activePage="trash"
+        userEmail={user?.email ?? null}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onLogout={handleLogout}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
 
-      <main className="flex-1 p-8 max-w-4xl">
+      <main className="flex-1 overflow-y-auto p-8">
+        <div className="max-w-4xl mx-auto">
+        <MobileTopBar onOpenMenu={() => setMobileMenuOpen(true)} />
         <h1 className="text-3xl text-slate-900 dark:text-white font-bold mb-1">Trash</h1>
         <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
             Documents here can be restored or permanently deleted.
@@ -126,14 +149,14 @@ function Trash() {
             return (
               <div
                 key={doc.id}
-                className="bg-slate-100 dark:bg-app-surface p-4 rounded-lg flex items-center gap-4 border border-slate-200 dark:border-app-border"
+                className="bg-slate-100 dark:bg-app-surface p-4 rounded-lg flex flex-wrap items-center gap-4 border border-slate-200 dark:border-app-border"
               >
                 <div
                   className={`${color} text-white text-xs font-bold w-10 h-10 rounded-lg flex items-center justify-center shrink-0`}
                 >
                   {label}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-[140px]">
                   <p className="text-slate-900 dark:text-white font-medium truncate">{doc.filename}</p>
                   <p className="text-slate-500 dark:text-slate-400 text-sm">
                     {formatBytes(doc.size_bytes)}
@@ -156,6 +179,7 @@ function Trash() {
               </div>
             )
           })}
+        </div>
         </div>
       </main>
     </div>

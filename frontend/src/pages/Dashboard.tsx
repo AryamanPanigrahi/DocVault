@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { getFileTypeInfo } from '../utils/fileType'
 import { formatBytes, formatRelativeTime } from '../utils/format'
 import useTheme from '../hooks/useTheme'
-import Logo from '../components/Logo'
+import Sidebar from '../components/Sidebar'
+import MobileTopBar from '../components/MobileTopBar'
 
 interface Document {
   id: number
@@ -33,6 +34,7 @@ function Dashboard() {
   const [dragging, setDragging] = useState(false)
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   function handleUnauthorized() {
     localStorage.removeItem('access_token')
@@ -223,6 +225,20 @@ function Dashboard() {
     return () => window.removeEventListener('paste', handlePaste)
   }, [])
 
+  useEffect(() => {
+    if (!selectedDoc) return
+
+    function handleEscape(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setSelectedDoc(null)
+        setPreviewUrl(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleEscape)
+    return () => window.removeEventListener('keydown', handleEscape)
+  }, [selectedDoc])
+
   async function handleDownload(id: number, filename: string) {
     const token = localStorage.getItem('access_token')
 
@@ -285,55 +301,25 @@ function Dashboard() {
   })
 
   return (
-    <div className="min-h-screen flex bg-white dark:bg-app-bg">
-      <aside className="w-56 shrink-0 border-r border-slate-200 dark:border-app-border p-6 flex flex-col justify-between">
-        <div>
-          <div className="mb-8">
-            <Logo size={32} />
-          </div>
-          <nav className="flex flex-col gap-1">
-            <span className="px-3 py-2 rounded-md bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white text-sm font-medium">
-              All Documents
-            </span>
-            <Link
-              to="/trash"
-              className="px-3 py-2 rounded-md text-slate-500 dark:text-slate-400 text-sm"
-            >
-              Trash
-            </Link>
-          </nav>
-        </div>
-
-        <div className="flex flex-col gap-3">
-          {user && (
-            <div className="flex items-center gap-2 px-1 mb-1">
-              <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
-                {user.email.charAt(0).toUpperCase()}
-              </div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 truncate">{user.email}</span>
-            </div>
-          )}
-          <button
-            onClick={toggleTheme}
-            className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-3 py-2 rounded-md text-sm"
-          >
-            {theme === 'dark' ? 'Light mode' : 'Dark mode'}
-          </button>
-          <button
-            onClick={handleLogout}
-            className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-3 py-2 rounded-md text-sm"
-          >
-            Log out
-          </button>
-        </div>
-      </aside>
+    <div className="h-screen flex bg-white dark:bg-app-bg">
+      <Sidebar
+        activePage="documents"
+        userEmail={user?.email ?? null}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onLogout={handleLogout}
+        mobileOpen={mobileMenuOpen}
+        onCloseMobile={() => setMobileMenuOpen(false)}
+      />
 
       <main
-        className="flex-1 p-8 max-w-4xl"
+        className="flex-1 overflow-y-auto p-8"
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
+        <div className="max-w-4xl mx-auto">
+        <MobileTopBar onOpenMenu={() => setMobileMenuOpen(true)} />
         <div className="flex items-baseline justify-between mb-1">
           <h1 className="text-3xl text-slate-900 dark:text-white font-bold">Your Documents</h1>
         </div>
@@ -414,7 +400,9 @@ function Dashboard() {
         {!loading && !searching && documents.length === 0 && (
           <div className="text-center py-12">
             <p className="text-slate-500 dark:text-slate-400 text-sm">
-              Nothing here yet — use the box above to add your first document.
+              {searchQuery.trim() === ''
+                ? 'Nothing here yet — use the box above to add your first document.'
+                : `No documents match "${searchQuery}".`}
             </p>
           </div>
         )}
@@ -429,21 +417,21 @@ function Dashboard() {
                   setPreviewUrl(null)
                   setSelectedDoc(doc)
                 }}
-                className="group bg-slate-100 dark:bg-app-surface p-4 rounded-lg flex items-center gap-4 border border-slate-200 dark:border-app-border hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer"
+                className="group bg-slate-100 dark:bg-app-surface p-4 rounded-lg flex flex-wrap items-center gap-4 border border-slate-200 dark:border-app-border hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer"
               >
                 <div
                   className={`${color} text-white text-xs font-bold w-10 h-10 rounded-lg flex items-center justify-center shrink-0`}
                 >
                   {label}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-slate-900 dark:text-white font-medium truncate">{doc.filename}</p>
+                <div className="flex-1 min-w-[140px]">
+                  <p className="text-slate-900 dark:text-white font-medium truncate" title={doc.filename}>{doc.filename}</p>
                   <p className="text-slate-500 dark:text-slate-400 text-sm">
                     {formatBytes(doc.size_bytes)} · {formatRelativeTime(doc.uploaded_at)}
                   </p>
                 </div>
                 <div
-                  className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="flex gap-2 max-md:opacity-100 opacity-0 group-hover:opacity-100 transition-opacity"
                   onClick={(e) => e.stopPropagation()}
                 >
                   <button
@@ -462,6 +450,7 @@ function Dashboard() {
               </div>
             )
           })}
+        </div>
         </div>
 
         {uploadMessage && (

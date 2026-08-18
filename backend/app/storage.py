@@ -4,17 +4,19 @@ from minio import Minio
 
 load_dotenv()
 
-MINIO_ROOT_USER = os.getenv("MINIO_ROOT_USER")
-MINIO_ROOT_PASSWORD = os.getenv("MINIO_ROOT_PASSWORD")
+STORAGE_ACCESS_KEY = os.getenv("B2_KEY_ID") or os.getenv("MINIO_ROOT_USER")
+STORAGE_SECRET_KEY = os.getenv("B2_APPLICATION_KEY") or os.getenv("MINIO_ROOT_PASSWORD")
+STORAGE_ENDPOINT = os.getenv("STORAGE_ENDPOINT", "localhost:9000")
+STORAGE_SECURE = os.getenv("STORAGE_SECURE", "false").lower() == "true"
 
 minio_client = Minio(
-    "localhost:9000",
-    access_key=MINIO_ROOT_USER,
-    secret_key=MINIO_ROOT_PASSWORD,
-    secure=False,
+    STORAGE_ENDPOINT,
+    access_key=STORAGE_ACCESS_KEY,
+    secret_key=STORAGE_SECRET_KEY,
+    secure=STORAGE_SECURE,
 )
 
-BUCKET_NAME = "documents"
+BUCKET_NAME = os.getenv("BUCKET_NAME", "documents")
 
 
 def ensure_bucket_exists():
