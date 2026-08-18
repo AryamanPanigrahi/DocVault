@@ -1,9 +1,10 @@
 interface LogoProps {
   size?: number
   showWordmark?: boolean
+  light?: boolean
 }
 
-function Logo({ size = 40, showWordmark = true }: LogoProps) {
+function Logo({ size = 40, showWordmark = true, light = false }: LogoProps) {
   return (
     <div className="flex items-center gap-2">
       <svg width={size} height={size} viewBox="0 0 100 130" fill="none">
@@ -21,8 +22,8 @@ function Logo({ size = 40, showWordmark = true }: LogoProps) {
 
       {showWordmark && (
         <span className="text-xl font-bold">
-          <span className="text-blue-900 dark:text-blue-300">Doc</span>
-          <span className="text-blue-500 dark:text-blue-400">Vault</span>
+          <span className={light ? 'text-white' : 'text-blue-900 dark:text-blue-300'}>Doc</span>
+          <span className={light ? 'text-blue-300' : 'text-blue-500 dark:text-blue-400'}>Vault</span>
         </span>
       )}
     </div>

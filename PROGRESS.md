@@ -441,3 +441,24 @@
 - Next: document detail view showing OCR extracted text — the last
   planned addition, needs a small backend change first (extracted_text
   isn't currently exposed via DocumentOut schema)
+## Current state (last updated: 2026-08-16)
+- Phase 1: feature-complete. All planned additions done: sorting,
+  drag-and-drop + paste upload, document detail modal with inline
+  preview.
+- Backend: DocumentOut schema now includes extracted_text (was
+  previously withheld, no longer needed to be).
+- Detail modal: click any document card to open. Shows inline preview
+  for PDFs (iframe) and images (object-contain), falls back to
+  extracted OCR text for other types (e.g. pptx), and a clear message
+  when neither exists. Large (90vh, max-w-4xl) for real usability,
+  Drive-style.
+- Fixed: preview showed stale content from the previously-viewed
+  document due to previewUrl not resetting on open/close — root cause
+  of what looked like "random" failures. Now explicitly cleared on
+  every select/close, plus an honest loading state during fetch.
+- Known, permanent limitation (not a bug): pptx/docx/xlsx cannot be
+  previewed inline — no browser-native rendering capability exists
+  for these formats without much heavier server-side infrastructure.
+  Correctly falls back to text/metadata view.
+- Phase 1 is now genuinely complete: full auth, storage, OCR search,
+  CRUD, trash, theming, branding, and a polished, tested UI.

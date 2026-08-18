@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Logo from '../components/Logo'
-
+import AuthLayout from '../components/AuthLayout'
 function Signup() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -28,7 +28,16 @@ function Signup() {
   }
 
   return (
-    <div className="min-h-screen bg-white dark:bg-app-bg flex items-center justify-center">
+    <AuthLayout
+      headline={
+        <>
+          Stop losing track
+          <br />
+          of what matters.
+        </>
+      }
+      subtext="Create your account and start making your documents searchable in minutes."
+    >
       <form onSubmit={handleSubmit} className="bg-slate-50 dark:bg-app-surface p-8 rounded-lg w-80 flex flex-col gap-4 border border-slate-200 dark:border-app-border">
         <div className="flex justify-center mb-4">
           <Logo size={48} />
@@ -63,7 +72,7 @@ function Signup() {
           </a>
         </p>
       </form>
-    </div>
+    </AuthLayout>
   )
 }
 
