@@ -547,3 +547,49 @@
 - Next: Render (backend deploy) and Vercel (frontend deploy) are the
   only two pieces left. Neon and B2 are both fully wired and verified
   working end-to-end.
+
+## Current state (last updated: 2026-08-19)
+- **DocVault is fully deployed and live**:
+  https://doc-vault-jet-kappa.vercel.app
+  (backend: https://docvault-rq35.onrender.com)
+- Stack: Vercel (frontend) + Render (backend, Docker) + Neon
+  (Postgres) + Backblaze B2 (object storage). All four free, all
+  four genuinely require no credit card — confirmed this the hard
+  way after Oracle Cloud's card verification hold failed and
+  Cloudflare R2 turned out to also require a card despite its own
+  marketing saying otherwise.
+- Bugs hit and fixed during the actual deploy (not just planning):
+  - Render: login endpoint 500'd with `TypeError: Expected a string
+    value` from `jwt.encode()` — `SECRET_KEY` had silently never been
+    added to Render's env vars (present for every other var, just
+    missing this one). Root-caused from the real traceback in
+    Render's log tab, not guessed.
+  - Vercel: forgot to set `VITE_API_URL` on first deploy, so the
+    frontend silently pointed at `127.0.0.1:8000` in production —
+    fixed by setting it and redeploying.
+  - CORS: backend only allowed `http://localhost:5173`; deployed
+    frontend's every API call was silently blocked until the Vercel
+    origin was added to `CORSMiddleware`'s `allow_origins`.
+  - SPA routing: direct navigation to `/login` (or any non-root
+    route) 404'd on Vercel — static host looked for a literal
+    `/login` file instead of falling back to `index.html` for
+    React Router to handle. Fixed with `frontend/vercel.json`
+    rewrite rule.
+  - Accidentally bulk-pasted the entire local `.env` (including
+    `DATABASE_URL`, `SECRET_KEY`, B2 keys) into Vercel's env vars,
+    which don't belong there — Vercel only needed `VITE_API_URL`.
+    Cleaned up. Note for future reference: Vite only bakes
+    `VITE_`-prefixed vars into the shipped JS bundle, so this was
+    never actually exposed to site visitors, just untidy.
+- Verified with real traffic at every layer, not just "it deployed":
+  signup, login, upload, list, download, and delete all exercised
+  through the actual deployed Vercel frontend hitting the actual
+  deployed Render backend, confirmed landing in real Neon rows and
+  real B2 objects, then cleaned up the test data afterward.
+- Known limitation, not a bug: Render's free tier sleeps after ~15
+  min of no traffic; first request after a gap takes 10-30s to wake
+  up. Same idea applies to Neon's compute (scales to zero after 5 min
+  idle). Acceptable for a personal-use app, not something to "fix."
+- Phase 1 is now complete end-to-end: built, polished, and deployed.
+  Next phase (per CLAUDE.md roadmap) is Tauri desktop with a
+  background download watcher — not started.
