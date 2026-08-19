@@ -66,9 +66,9 @@ code. Treat this like mentoring a junior engineer, not autocompleting tasks.
 
 \## Architecture Principle (locked in)
 
-\*\*The backend is client-agnostic from day one.\*\* Auth is token-based (JWT +
+\*\*The backend is client-agnostic from day one.\*\* Auth is token-based (JWT),
 
-refresh tokens), not cookie/session-based, because web, Tauri desktop, and
+not cookie/session-based, because web, Tauri desktop, and
 
 Android clients will all consume the same API as independent thin clients —
 
@@ -77,6 +77,16 @@ not separate products. This was a deliberate upfront decision to avoid a
 costly refactor later. Don't design any backend feature assuming "the
 
 frontend" — assume "a client."
+
+Refresh tokens were part of the original plan but were deliberately skipped
+
+(decided 2026-08-19): DocVault is a single-user personal tool, so the
+
+added complexity of a refresh-token flow wasn't worth it over just using a
+
+longer-lived access token (currently 7 days, no rotation). Revisit this if
+
+DocVault ever needs multi-user auth or tighter security guarantees.
 
 
 
@@ -94,7 +104,7 @@ frontend" — assume "a client."
 
 \- \*\*Object Storage:\*\* MinIO (dev) → S3-compatible (prod)
 
-\- \*\*Auth:\*\* JWT + refresh tokens
+\- \*\*Auth:\*\* JWT only, 7-day access token, no refresh tokens (deliberate — see Architecture Principle)
 
 \- \*\*Caching/Background Jobs:\*\* Redis (deferred until there's a real need)
 
