@@ -1,11 +1,19 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { isTauri } from '@tauri-apps/api/core'
+import { listen } from '@tauri-apps/api/event'
+import { readFile } from '@tauri-apps/plugin-fs'
 import { getFileTypeInfo } from '../utils/fileType'
 import { formatBytes, formatRelativeTime } from '../utils/format'
 import useTheme from '../hooks/useTheme'
 import Sidebar from '../components/Sidebar'
 import MobileTopBar from '../components/MobileTopBar'
 import { API_URL } from '../config'
+
+interface DetectedFile {
+  path: string
+  mime_type: string | null
+}
 
 interface Document {
   id: number
@@ -65,6 +73,33 @@ function Dashboard() {
   useEffect(() => {
     fetchDocuments()
     fetchCurrentUser()
+  }, [])
+
+  // Desktop-only: the Tauri watcher (src-tauri/src/watcher.rs) emits this
+  // event when it detects a new file in the OS Downloads folder. No-op in
+  // the web build, where isTauri() is false.
+  useEffect(() => {
+    if (!isTauri()) return
+
+    const unlistenPromise = listen<DetectedFile>('file-detected', async (event) => {
+      try {
+        const { path, mime_type } = event.payload
+        const bytes = await readFile(path)
+        const filename = path.split(/[\\/]/).pop() ?? 'file'
+        const file = new File([bytes], filename, mime_type ? { type: mime_type } : undefined)
+        await uploadFile(file)
+      } catch (err) {
+        console.error('Failed to auto-ingest detected file', err)
+      }
+    })
+
+    // Chained off the promise itself, not a variable assigned once it
+    // resolves — StrictMode's mount/unmount/remount in dev can unmount
+    // before listen() resolves, so a plain `let unlisten` closure would
+    // still be undefined at cleanup time and silently leak the listener.
+    return () => {
+      unlistenPromise.then((unlisten) => unlisten())
+    }
   }, [])
 
   async function fetchCurrentUser() {
