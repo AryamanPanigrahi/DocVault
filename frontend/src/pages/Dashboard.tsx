@@ -5,6 +5,8 @@ import { listen } from '@tauri-apps/api/event'
 import { readFile } from '@tauri-apps/plugin-fs'
 import { getFileTypeInfo } from '../utils/fileType'
 import { formatBytes, formatRelativeTime } from '../utils/format'
+import { getSweepNotesAssignments } from '../utils/watcherSettings'
+import { classifyContent } from '../utils/classifyContent'
 import useTheme from '../hooks/useTheme'
 import Sidebar from '../components/Sidebar'
 import MobileTopBar from '../components/MobileTopBar'
@@ -13,6 +15,7 @@ import { API_URL } from '../config'
 interface DetectedFile {
   path: string
   mime_type: string | null
+  category: 'notes_assignments' | 'general'
 }
 
 interface Document {
@@ -84,10 +87,40 @@ function Dashboard() {
     const unlistenPromise = listen<DetectedFile>('file-detected', async (event) => {
       try {
         const { path, mime_type } = event.payload
-        const bytes = await readFile(path)
+
+        // The filename-based category from Rust is only a heads-up, not a
+        // gate: filenames are an unreliable signal, so every non-blocked
+        // file gets uploaded and OCR'd regardless of that guess. The real
+        // decision happens below, against the actual extracted text.
+        //
+        // One retry after a short delay: seen in practice with browser
+        // downloads — the final filename can briefly exist in a directory
+        // listing (triggering our watcher) before its content is fully
+        // flushed, so the very first read attempt can 404. The rename that
+        // exposed the name already happened, so a short wait is enough.
+        let bytes: Uint8Array
+        try {
+          bytes = await readFile(path)
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 300))
+          bytes = await readFile(path)
+        }
         const filename = path.split(/[\\/]/).pop() ?? 'file'
         const file = new File([bytes], filename, mime_type ? { type: mime_type } : undefined)
-        await uploadFile(file)
+        const uploaded = await uploadFile(file)
+        if (!uploaded) return
+
+        if (
+          classifyContent(uploaded.extracted_text) === 'notes_assignments' &&
+          !getSweepNotesAssignments()
+        ) {
+          await permanentlyDeleteDocument(uploaded.id, { silent: true })
+          setUploadMessage({
+            text: `Auto-removed "${uploaded.filename}" (identified as notes/assignment)`,
+            error: false,
+          })
+          setTimeout(() => setUploadMessage(null), 3000)
+        }
       } catch (err) {
         console.error('Failed to auto-ingest detected file', err)
       }
@@ -158,7 +191,7 @@ function Dashboard() {
     navigate('/login')
   }
 
-  async function uploadFile(file: File) {
+  async function uploadFile(file: File): Promise<Document | undefined> {
     setUploading(true)
     const token = localStorage.getItem('access_token')
 
@@ -173,10 +206,13 @@ function Dashboard() {
 
     if (response.status === 401) {
       handleUnauthorized()
-      return
+      return undefined
     }
 
+    let uploaded: Document | undefined
+
     if (response.ok) {
+      uploaded = await response.json()
       await fetchDocuments()
       setUploadMessage({ text: 'File uploaded successfully', error: false })
     } else {
@@ -185,6 +221,7 @@ function Dashboard() {
 
     setUploading(false)
     setTimeout(() => setUploadMessage(null), 3000)
+    return uploaded
   }
 
   async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -326,6 +363,32 @@ function Dashboard() {
     }
 
     setTimeout(() => setUploadMessage(null), 3000)
+  }
+
+  // Used by the watcher's auto-reject flow (confirmed-by-OCR notes/
+  // assignments with the sweep toggle off) — bypasses Trash entirely,
+  // since the whole point is to actually free storage, not just hide the
+  // file. `silent` lets the caller show its own explanatory toast instead
+  // of the generic one.
+  async function permanentlyDeleteDocument(id: number, options?: { silent?: boolean }) {
+    const token = localStorage.getItem('access_token')
+
+    const response = await fetch(`${API_URL}/documents/${id}/permanent`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (response.status === 401) {
+      handleUnauthorized()
+      return
+    }
+
+    if (response.ok) {
+      setDocuments((prev) => prev.filter((doc) => doc.id !== id))
+    } else if (!options?.silent) {
+      setUploadMessage({ text: 'Delete failed', error: true })
+      setTimeout(() => setUploadMessage(null), 3000)
+    }
   }
 
   const totalBytes = documents.reduce((sum, doc) => sum + (doc.size_bytes ?? 0), 0)
