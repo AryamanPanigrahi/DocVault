@@ -106,7 +106,12 @@ function Dashboard() {
           bytes = await readFile(path)
         }
         const filename = path.split(/[\\/]/).pop() ?? 'file'
-        const file = new File([bytes], filename, mime_type ? { type: mime_type } : undefined)
+        // Cast needed because @tauri-apps/plugin-fs types readFile() as
+        // Uint8Array<ArrayBufferLike>, while File's BlobPart type requires
+        // ArrayBufferView<ArrayBuffer> specifically (excluding
+        // SharedArrayBuffer) — a real Uint8Array works fine here at
+        // runtime, this is TS being stricter than the actual value allows.
+        const file = new File([bytes as BlobPart], filename, mime_type ? { type: mime_type } : undefined)
         const uploaded = await uploadFile(file)
         if (!uploaded) return
 
