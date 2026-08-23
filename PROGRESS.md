@@ -593,3 +593,121 @@
 - Phase 1 is now complete end-to-end: built, polished, and deployed.
   Next phase (per CLAUDE.md roadmap) is Tauri desktop with a
   background download watcher — not started.
+
+## Current state (last updated: 2026-08-23)
+- **Phase 2 complete**: Tauri desktop app with a background download
+  watcher, verified end-to-end via a real installed production build.
+- Environment: Rust (rustup), MSVC Build Tools (VS 2022 Community C++
+  workload), WebView2 — all confirmed installed and working together
+  (`cargo check`/`cargo build` succeed against the MSVC toolchain).
+- `desktop/` scaffolded via `tauri init`, configured to reuse the
+  existing `frontend/` (devUrl -> Vite's :5173, build output ->
+  `frontend/dist`) instead of duplicating the React app. `identifier`
+  changed from the placeholder `com.tauri.dev` to `com.docvault.desktop`.
+- **Watcher** (`desktop/src-tauri/src/watcher.rs`): background thread
+  using `notify` to watch the OS Downloads folder (`dirs::download_dir()`).
+  - Debounces duplicate Create/Modify events per path (500ms window) —
+    a single file save otherwise fires the event twice.
+  - Hard-blocks (never swept up, no toggle): installers/archives (exe,
+    msi, bat, cmd, ps1, dmg, app, zip, rar, 7z, tar, gz) and in-progress
+    download markers (crdownload, part, download, opdownload, partial,
+    tmp) — the download-marker list exists because Chrome's `.tmp`
+    staging files and `.crdownload` partials were getting swept up as
+    garbage documents in real testing before this was added.
+  - Guesses a MIME type (`mime_guess`) and a filename-based category
+    (`notes_assignments` vs `general`, via keyword matching) per file,
+    included in the emitted `file-detected` event payload. The category
+    guess is filename-only and known to be unreliable (verified: a real
+    assignment PDF's filename gave zero signal) — it's a heads-up, not
+    a gate.
+- **Ingest pipeline** (`frontend/src/utils/autoIngest.ts`, called from
+  `frontend/src/components/DesktopWatcher.tsx`): every non-blocked file
+  is uploaded and OCR'd regardless of the filename guess. After OCR,
+  reclassifies against the real `extracted_text` (a much stronger
+  signal — keyword list tuned against a real document: "Assessment"
+  not "Assignment", "Roll Number" not "Roll No", etc., see
+  `frontend/src/utils/classifyContent.ts`). If confirmed
+  `notes_assignments` and the sidebar toggle ("Auto-add notes &
+  assignments", default OFF, `frontend/src/utils/watcherSettings.ts`)
+  is off, the document is **permanently** deleted (not soft-deleted to
+  Trash — the point is to actually free storage, matching the original
+  ask, not just hide the file).
+  - `autoIngestFile()` is self-contained (no React state), so it can
+    run from anywhere in the app — necessary because the listener now
+    lives in `DesktopWatcher.tsx`, mounted once at the app root
+    alongside `<Routes>` in `App.tsx`, not inside `Dashboard.tsx`.
+    Originally it *was* Dashboard-scoped and silently stopped working
+    the moment you navigated to Trash — fixed and verified (dropped a
+    test file while sitting on the Trash page, confirmed it still
+    uploaded).
+  - Read retry: the final filename can briefly exist in a directory
+    listing before its content is fully flushed (real browser-download
+    race, not theoretical — hit it live during testing), so a failed
+    `readFile()` gets one retry after 300ms. Known remaining gap: this
+    wasn't enough in at least one real case (slower download) — worth
+    hardening with a longer/multi-step retry later, not urgent since it
+    fails safe (skips that one file, logs a console error).
+- **System tray** (`desktop/src-tauri/src/lib.rs`): added `tray-icon`
+  Cargo feature. Tray icon with Show/Quit menu; window's close event
+  is intercepted (`prevent_close()`) to hide instead of exit — a
+  background watcher can't keep working if closing the window kills
+  the process. Verified: watcher still fires while minimized to tray;
+  Quit fully terminates with no leftover `app.exe` process.
+- **Production build**: ran a real `tauri build` (previously only ever
+  `tauri dev`) — produces both `DocVault_0.1.0_x64_en-US.msi` (WiX) and
+  `DocVault_0.1.0_x64-setup.exe` (NSIS), ~2-3MB each. Verified by
+  actually installing and running the NSIS build, not just trusting a
+  successful compile: installs cleanly, launches, shows login, tray
+  icon appears after login.
+- Fixed along the way (real bugs, not just polish):
+  - **React StrictMode double-listener race**: dev-mode's mount →
+    cleanup → remount cycle exposed a real async cleanup bug — a plain
+    `let unlisten` variable was still `undefined` when cleanup ran
+    (since `listen()` is async), silently leaking the first listener.
+    Fixed by chaining cleanup off the promise itself
+    (`unlistenPromise.then(unlisten => unlisten())`), not a variable
+    that might not be assigned yet. This would have caused real
+    duplicate uploads on any component remount in production, not just
+    a dev artifact.
+  - **`.env` production-secrets footgun**: the committed-nowhere-but-
+    shared local `.env` had picked up `DATABASE_URL` (Neon) and B2
+    storage keys during Phase 1's deployment, and both `database.py`
+    and `storage.py` prefer those over local defaults whenever present
+    — meaning any local `uv run uvicorn` was silently talking to
+    **production** DB and storage. Confirmed the hard way: two test
+    watcher-upload rows landed in the real production Neon DB, deleted
+    after explicit confirmation (prod DB touch was intentionally gated
+    behind asking first). Fixed by splitting into `.env` (local-only,
+    auto-loaded) and `.env.production` (real prod values, never
+    auto-loaded — accessing prod locally now requires explicitly
+    passing the value at the command line). No code changes needed;
+    `.env.example` / `.env.production.example` split the same way for
+    future clones.
+  - **Vercel build failure**: `tsc -b` on Vercel's build environment
+    was stricter than local dev about `Uint8Array<ArrayBufferLike>` vs
+    `ArrayBufferView<ArrayBuffer>` in the `File` constructor. Fixed
+    with a narrow, justified type cast; verified via `npm run build`
+    locally (the exact command Vercel runs) before repushing.
+  - Killed the running installed production app by accident while
+    cleaning up dev-mode processes via `Stop-Process -Name app` — dev
+    and production builds share the same process name (`app.exe`), so
+    an unscoped kill-by-name hits both. Lesson: scope process cleanup
+    by path/working directory, not just name, when a production
+    instance might also be running.
+- Git: all Phase 2 work is committed and pushed to `main` (commits
+  `5da85d4` scaffold+watcher, `d28369a` filtering/classification,
+  `70c1d8e` Vercel build fix, `395294f` app-wide listener+tray+verified
+  production build). Nothing uncommitted.
+- Known remaining gaps (not blocking, listed here so a future session
+  doesn't have to rediscover them):
+  - Read-retry window (300ms) occasionally insufficient — see above.
+  - No auto-start-on-boot (Windows startup registration) — never asked
+    for, out of scope so far.
+  - "Show DocVault" tray menu item (restore window) was verified to
+    exist and compile but not explicitly click-tested by the user (the
+    Quit test happened first, ending the session before circling back).
+  - Default Tauri icons still in use — no DocVault branding pass on
+    the desktop app icon/installer icon yet (web app has a real logo).
+- Next phase (per CLAUDE.md roadmap): **Phase 3, Android client + real
+  cross-device sync** — the original motivating problem for the whole
+  project (Windows-to-Android). Not started.
