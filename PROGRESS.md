@@ -794,6 +794,30 @@
     (self-referential `folders` table + `folder_id` FK on `documents`
     is the obvious shape but not yet built).
 
+## Current state (last updated: 2026-08-23, later evening)
+- **Redesign reverted** (`git revert` of `6c8c163`, committed as
+  `3e35086`, pushed and live). User's call after seeing it deployed:
+  "this new one is not it." Reverted cleanly, no conflicts — back to
+  the original slate/blue Tailwind palette, Work Sans throughout,
+  standard rounded-lg/xl/2xl corners. Confirmed live on the real
+  production URL via computed styles (Work Sans font, Tailwind blue
+  oklch color), not just a successful build.
+- Separately: the user also flagged the "Auto-add notes & assignments"
+  toggle as missing from the website. That's expected, not a bug — the
+  toggle is gated behind `isTauri()` in `Sidebar.tsx` (added during the
+  Phase 2 watcher work, unrelated to the redesign) since it only
+  controls desktop-watcher behavior. Worth remembering if this comes
+  up again: it is intentionally desktop-only, not something to "fix"
+  on web.
+- Net effect: app is back to its pre-redesign visual state. The
+  `frontend/src/utils/watcherSettings.ts`, `autoIngest.ts`,
+  `classifyContent.ts`, `DesktopWatcher.tsx` (Phase 2 watcher/
+  classification work) are all untouched by either the redesign or the
+  revert — those commits only touched visual/token files.
+- Folders feature is still next (decisions below still stand), just
+  without a redesign underneath it now — building on the original
+  visual system, not the reverted one.
+
 ## Next phase
 Folders (see above) is the immediate next task. Per CLAUDE.md roadmap,
 **Phase 3 (Android client + real cross-device sync)** remains the
