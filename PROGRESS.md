@@ -818,6 +818,23 @@
   without a redesign underneath it now — building on the original
   visual system, not the reverted one.
 
+## Current state (last updated: 2026-08-23, night)
+- **"Auto-add notes & assignments" toggle now shows on the website**
+  (`Sidebar.tsx`) — was previously gated behind `isTauri()`, hiding it
+  entirely on web. Removed the gate; added a `title` tooltip clarifying
+  it only affects the desktop app's watcher, since the toggle is
+  genuinely inert on web (manual web uploads never call
+  `autoIngest.ts`'s classify-then-maybe-delete logic — only
+  `DesktopWatcher.tsx`'s listener does, and that's still `isTauri()`-
+  gated). Web and desktop use separate localStorage, so the setting
+  doesn't sync between them either — this was a visibility fix only,
+  not a behavior change. Verified locally (logged in, confirmed the
+  toggle renders) and confirmed the Vercel deploy succeeded
+  (`● Ready`), though not re-verified past login on the live site
+  itself — didn't want to create a test account on production without
+  asking first.
+- Commit: `2ef9102`.
+
 ## Next phase
 Folders (see above) is the immediate next task. Per CLAUDE.md roadmap,
 **Phase 3 (Android client + real cross-device sync)** remains the
