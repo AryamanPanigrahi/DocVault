@@ -7,6 +7,20 @@ use tauri::{Manager, WindowEvent};
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
   tauri::Builder::default()
+    // Must be the first plugin registered: it needs to intercept startup
+    // before anything else runs. Without this, every launch (Start Menu
+    // search, double-click, etc.) spawns its own process with its own
+    // tray icon and its own watcher thread — confusing, and risky since
+    // multiple watcher instances could double-process the same file.
+    // When a second launch is detected, this hands off to the already-
+    // running instance (which shows/focuses its window) and the new
+    // process exits immediately instead of continuing to start up.
+    .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+      if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+      }
+    }))
     .plugin(tauri_plugin_fs::init())
     .setup(|app| {
       if cfg!(debug_assertions) {

@@ -708,6 +708,41 @@
     Quit test happened first, ending the session before circling back).
   - Default Tauri icons still in use — no DocVault branding pass on
     the desktop app icon/installer icon yet (web app has a real logo).
-- Next phase (per CLAUDE.md roadmap): **Phase 3, Android client + real
-  cross-device sync** — the original motivating problem for the whole
-  project (Windows-to-Android). Not started.
+## Current state (last updated: 2026-08-23, later same day)
+- **Single-instance fix**: every launch (Start Menu search, double-
+  click, etc.) was spawning its own `app.exe` process — its own tray
+  icon, its own watcher thread. Fixed with
+  `tauri-plugin-single-instance`, registered as the *first* plugin in
+  the builder chain (must intercept before anything else starts). When
+  a second launch is detected, it hands off to the already-running
+  instance (shows/focuses its window) and the new process exits
+  immediately. Verified at the process level: launched twice via
+  `Start-Process`, confirmed the second launch did not spawn a new PID
+  — only the original process remained.
+- Rebuilt the production installer (`tauri build`) with this fix and
+  swapped the installed binary directly (`AppData\Local\DocVault\app.exe`)
+  rather than re-running the installer UI, since it's a per-user
+  install (no UAC) and the version number didn't change.
+- Fixed a self-inflicted bug from the previous session: while cleaning
+  up dev-mode processes with `Stop-Process -Name app`, this also
+  killed the user's separately-running **installed production app**,
+  since dev and production builds share the same process name. The
+  tray icon disappeared as a result — not a code bug, just an
+  unscoped process-cleanup command. Lesson: when a production instance
+  might also be running, scope cleanup by path/working directory, not
+  name alone. (The new single-instance plugin also incidentally makes
+  this class of mistake less likely to cause confusion — there's only
+  ever one real process to worry about now.)
+- Established habit going forward: keep this file updated after
+  significant milestones (not just when asked), specifically so a
+  future session that starts fresh after a context-window switch can
+  read this file and pick up cold without needing the prior
+  conversation history.
+- Git: committed and pushed (see commit after this PROGRESS.md update
+  for the exact hash — `desktop/src-tauri/Cargo.toml`,
+  `Cargo.lock`, `src/lib.rs`).
+
+## Next phase
+Per CLAUDE.md roadmap: **Phase 3, Android client + real cross-device
+sync** — the original motivating problem for the whole project
+(Windows-to-Android). Not started.
