@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { isTauri } from '@tauri-apps/api/core'
 import Logo from './Logo'
 import { getSweepNotesAssignments, setSweepNotesAssignments } from '../utils/watcherSettings'
 
@@ -62,19 +61,20 @@ function Sidebar({
         </div>
 
         <div className="flex flex-col gap-3">
-          {isTauri() && (
-            <label className="flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-slate-100 dark:bg-app-surface text-sm cursor-pointer">
-              <span className="text-slate-700 dark:text-slate-300">
-                Auto-add notes &amp; assignments
-              </span>
-              <input
-                type="checkbox"
-                checked={sweepNotesAssignments}
-                onChange={toggleSweepNotesAssignments}
-                className="accent-blue-600"
-              />
-            </label>
-          )}
+          <label
+            className="flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-slate-100 dark:bg-app-surface text-sm cursor-pointer"
+            title="Only affects the desktop app's background watcher — has no effect on the web version's manual uploads."
+          >
+            <span className="text-slate-700 dark:text-slate-300">
+              Auto-add notes &amp; assignments
+            </span>
+            <input
+              type="checkbox"
+              checked={sweepNotesAssignments}
+              onChange={toggleSweepNotesAssignments}
+              className="accent-blue-600"
+            />
+          </label>
           {userEmail && (
             <div className="flex items-center gap-2 px-1 mb-1">
               <div className="w-7 h-7 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center shrink-0">
