@@ -4,10 +4,12 @@ import Signup from './pages/Signup'
 import Dashboard from './pages/Dashboard'
 import Trash from './pages/Trash'
 import ProtectedRoute from './components/ProtectedRoute'
+import DesktopWatcher from './components/DesktopWatcher'
 
 function App() {
   return (
     <BrowserRouter>
+      <DesktopWatcher />
       <Routes>
         <Route
           path="/"

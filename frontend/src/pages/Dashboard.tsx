@@ -1,22 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { isTauri } from '@tauri-apps/api/core'
-import { listen } from '@tauri-apps/api/event'
-import { readFile } from '@tauri-apps/plugin-fs'
 import { getFileTypeInfo } from '../utils/fileType'
 import { formatBytes, formatRelativeTime } from '../utils/format'
-import { getSweepNotesAssignments } from '../utils/watcherSettings'
-import { classifyContent } from '../utils/classifyContent'
 import useTheme from '../hooks/useTheme'
 import Sidebar from '../components/Sidebar'
 import MobileTopBar from '../components/MobileTopBar'
 import { API_URL } from '../config'
-
-interface DetectedFile {
-  path: string
-  mime_type: string | null
-  category: 'notes_assignments' | 'general'
-}
 
 interface Document {
   id: number
@@ -76,68 +65,6 @@ function Dashboard() {
   useEffect(() => {
     fetchDocuments()
     fetchCurrentUser()
-  }, [])
-
-  // Desktop-only: the Tauri watcher (src-tauri/src/watcher.rs) emits this
-  // event when it detects a new file in the OS Downloads folder. No-op in
-  // the web build, where isTauri() is false.
-  useEffect(() => {
-    if (!isTauri()) return
-
-    const unlistenPromise = listen<DetectedFile>('file-detected', async (event) => {
-      try {
-        const { path, mime_type } = event.payload
-
-        // The filename-based category from Rust is only a heads-up, not a
-        // gate: filenames are an unreliable signal, so every non-blocked
-        // file gets uploaded and OCR'd regardless of that guess. The real
-        // decision happens below, against the actual extracted text.
-        //
-        // One retry after a short delay: seen in practice with browser
-        // downloads — the final filename can briefly exist in a directory
-        // listing (triggering our watcher) before its content is fully
-        // flushed, so the very first read attempt can 404. The rename that
-        // exposed the name already happened, so a short wait is enough.
-        let bytes: Uint8Array
-        try {
-          bytes = await readFile(path)
-        } catch {
-          await new Promise((resolve) => setTimeout(resolve, 300))
-          bytes = await readFile(path)
-        }
-        const filename = path.split(/[\\/]/).pop() ?? 'file'
-        // Cast needed because @tauri-apps/plugin-fs types readFile() as
-        // Uint8Array<ArrayBufferLike>, while File's BlobPart type requires
-        // ArrayBufferView<ArrayBuffer> specifically (excluding
-        // SharedArrayBuffer) — a real Uint8Array works fine here at
-        // runtime, this is TS being stricter than the actual value allows.
-        const file = new File([bytes as BlobPart], filename, mime_type ? { type: mime_type } : undefined)
-        const uploaded = await uploadFile(file)
-        if (!uploaded) return
-
-        if (
-          classifyContent(uploaded.extracted_text) === 'notes_assignments' &&
-          !getSweepNotesAssignments()
-        ) {
-          await permanentlyDeleteDocument(uploaded.id, { silent: true })
-          setUploadMessage({
-            text: `Auto-removed "${uploaded.filename}" (identified as notes/assignment)`,
-            error: false,
-          })
-          setTimeout(() => setUploadMessage(null), 3000)
-        }
-      } catch (err) {
-        console.error('Failed to auto-ingest detected file', err)
-      }
-    })
-
-    // Chained off the promise itself, not a variable assigned once it
-    // resolves — StrictMode's mount/unmount/remount in dev can unmount
-    // before listen() resolves, so a plain `let unlisten` closure would
-    // still be undefined at cleanup time and silently leak the listener.
-    return () => {
-      unlistenPromise.then((unlisten) => unlisten())
-    }
   }, [])
 
   async function fetchCurrentUser() {
@@ -368,32 +295,6 @@ function Dashboard() {
     }
 
     setTimeout(() => setUploadMessage(null), 3000)
-  }
-
-  // Used by the watcher's auto-reject flow (confirmed-by-OCR notes/
-  // assignments with the sweep toggle off) — bypasses Trash entirely,
-  // since the whole point is to actually free storage, not just hide the
-  // file. `silent` lets the caller show its own explanatory toast instead
-  // of the generic one.
-  async function permanentlyDeleteDocument(id: number, options?: { silent?: boolean }) {
-    const token = localStorage.getItem('access_token')
-
-    const response = await fetch(`${API_URL}/documents/${id}/permanent`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
-
-    if (response.status === 401) {
-      handleUnauthorized()
-      return
-    }
-
-    if (response.ok) {
-      setDocuments((prev) => prev.filter((doc) => doc.id !== id))
-    } else if (!options?.silent) {
-      setUploadMessage({ text: 'Delete failed', error: true })
-      setTimeout(() => setUploadMessage(null), 3000)
-    }
   }
 
   const totalBytes = documents.reduce((sum, doc) => sum + (doc.size_bytes ?? 0), 0)
