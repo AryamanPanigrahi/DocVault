@@ -3,11 +3,54 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-app-bg: #0a0a0c;
-  --color-app-surface: #16161a;
-  --color-app-border: #27272a;
+  --color-app-bg: #f3f2f2;
+  --color-app-surface: #eae9e9;
+  --color-app-surface-2: #f8f4f4;
+  --color-app-border: color-mix(in srgb, #201e1d 16%, transparent);
+  --color-app-text: #201e1d;
+  --color-app-text-secondary: #7d7979;
+
+  --color-accent: #0088b0;
+  --color-accent-hover: #006786;
+  --color-accent-100: #e9f8ff;
+  --color-accent-200: #cbeeff;
+  --color-accent-400: #62c5ee;
+  --color-accent-700: #006786;
+  --color-accent-800: #004961;
+
+  --color-accent-2: #d6006c;
+  --color-accent-2-hover: #aa0b56;
+  --color-accent-2-100: #fff1f4;
+  --color-accent-2-200: #ffdee6;
+
+  /* File-type badge colors only (Dashboard/Trash document cards) */
+  --color-process-yellow: #edbb00;
+  --color-file-neutral: #a5a5ac;
+
+  --font-heading: "Source Serif 4", ui-serif, serif;
+  --radius-app-sm: 1px;
+  --radius-app-md: 2px;
+  --radius-app-lg: 4px;
+}
+
+/* Dark mode: no dark variant existed in the source design (it's a
+   light-only static mockup), so these are derived to match the same
+   teal/magenta accent language rather than lifted directly. Overriding
+   the same custom property names under .dark (rather than defining
+   separate `-dark` tokens) means every component only needs one class
+   (e.g. `bg-app-bg`), not a light/dark pair — it just resolves
+   differently depending on whether .dark is set on <html>. */
+.dark {
+  --color-app-bg: #17181a;
+  --color-app-surface: #202124;
+  --color-app-surface-2: #26272b;
+  --color-app-border: #35363a;
+  --color-app-text: #f3f2f2;
+  --color-app-text-secondary: #9b9797;
 }
 
 body {
   font-family: 'Work Sans', sans-serif;
+  background-color: var(--color-app-bg);
+  color: var(--color-app-text);
 }

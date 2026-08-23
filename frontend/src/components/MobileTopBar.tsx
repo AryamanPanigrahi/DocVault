@@ -11,7 +11,7 @@ function MobileTopBar({ onOpenMenu }: MobileTopBarProps) {
       <button
         onClick={onOpenMenu}
         aria-label="Open menu"
-        className="p-2 rounded-md bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white"
+        className="p-2 rounded-app-md bg-app-surface text-app-text"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
           <line x1="3" y1="5" x2="17" y2="5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />

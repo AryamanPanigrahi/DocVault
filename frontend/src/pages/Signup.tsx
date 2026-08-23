@@ -39,7 +39,7 @@ function Signup() {
       }
       subtext="Create your account and start making your documents searchable in minutes."
     >
-      <form onSubmit={handleSubmit} className="bg-slate-50 dark:bg-app-surface p-8 rounded-lg w-80 flex flex-col gap-4 border border-slate-200 dark:border-app-border">
+      <form onSubmit={handleSubmit} className="bg-app-surface p-8 rounded-app-lg w-80 flex flex-col gap-4 border border-app-border">
         <div className="flex justify-center mb-4">
           <Logo size={48} />
         </div>
@@ -49,7 +49,7 @@ function Signup() {
           placeholder="Email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="bg-white dark:bg-app-bg text-slate-900 dark:text-white p-2 rounded border border-slate-300 dark:border-app-border"
+          className="bg-app-bg text-app-text p-2 rounded-app-md border border-app-border"
         />
 
         <input
@@ -57,18 +57,18 @@ function Signup() {
           placeholder="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="bg-white dark:bg-app-bg text-slate-900 dark:text-white p-2 rounded border border-slate-300 dark:border-app-border"
+          className="bg-app-bg text-app-text p-2 rounded-app-md border border-app-border"
         />
 
         {error && <p className="text-red-500 dark:text-red-400 text-sm">{error}</p>}
 
-        <button type="submit" className="bg-blue-600 hover:bg-blue-500 text-white p-2 rounded">
+        <button type="submit" className="bg-accent hover:bg-accent-hover text-white p-2 rounded-app-md">
           Sign up
         </button>
 
-        <p className="text-slate-500 dark:text-slate-400 text-sm text-center">
+        <p className="text-app-text-secondary text-sm text-center">
           Already have an account?{' '}
-          <a href="/login" className="text-blue-600 dark:text-blue-400 hover:underline">
+          <a href="/login" className="text-accent hover:underline">
             Log in
           </a>
         </p>

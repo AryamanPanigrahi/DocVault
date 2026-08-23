@@ -306,7 +306,7 @@ function Dashboard() {
   })
 
   return (
-    <div className="h-screen flex bg-white dark:bg-app-bg">
+    <div className="h-screen flex bg-app-bg">
       <Sidebar
         activePage="documents"
         userEmail={user?.email ?? null}
@@ -326,25 +326,25 @@ function Dashboard() {
         <div className="max-w-4xl mx-auto">
         <MobileTopBar onOpenMenu={() => setMobileMenuOpen(true)} />
         <div className="flex items-baseline justify-between mb-1">
-          <h1 className="text-3xl text-slate-900 dark:text-white font-bold">Your Documents</h1>
+          <h1 className="text-3xl text-app-text font-bold">Your Documents</h1>
         </div>
-        <p className="text-slate-500 dark:text-slate-400 text-sm mb-6">
+        <p className="text-app-text-secondary text-sm mb-6">
           {documents.length} {documents.length === 1 ? 'document' : 'documents'} · {formatBytes(totalBytes)} total · drag &amp; drop files anywhere to upload
         </p>
 
         <div
-          className={`border-2 border-dashed rounded-xl p-6 mb-6 flex items-center justify-between transition-all ${
+          className={`border-2 border-dashed rounded-app-lg p-6 mb-6 flex items-center justify-between transition-all ${
             dragging
-              ? 'border-blue-500 bg-blue-50 dark:bg-blue-950/30 shadow-[0_0_20px_rgba(59,130,246,0.4)]'
-              : 'border-slate-300 dark:border-app-border'
+              ? 'border-accent bg-accent-100 dark:bg-accent-800/30 shadow-[0_0_20px_rgba(0,136,176,0.4)]'
+              : 'border-app-border'
           }`}
         >
           <div>
-            <p className="text-slate-900 dark:text-white font-medium text-sm">Add a document</p>
-            <p className="text-slate-500 dark:text-slate-400 text-xs">Drag & drop, paste, or click to browse</p>
+            <p className="text-app-text font-medium text-sm">Add a document</p>
+            <p className="text-app-text-secondary text-xs">Drag & drop, paste, or click to browse</p>
           </div>
           <label className="cursor-pointer">
-            <span className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-md text-sm font-medium inline-block">
+            <span className="bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-app-md text-sm font-medium inline-block">
               {uploading ? 'Uploading...' : 'Upload'}
             </span>
             <input type="file" onChange={handleFileUpload} disabled={uploading} className="hidden" />
@@ -355,7 +355,7 @@ function Dashboard() {
           <div className="relative">
             <button
               onClick={() => setSortMenuOpen((prev) => !prev)}
-              className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white p-2.5 rounded-md border border-slate-200 dark:border-app-border"
+              className="bg-app-surface text-app-text p-2.5 rounded-app-md border border-app-border"
               title="Sort"
             >
               <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -366,7 +366,7 @@ function Dashboard() {
             </button>
 
             {sortMenuOpen && (
-              <div className="absolute top-full mt-1 left-0 bg-white dark:bg-app-surface border border-slate-200 dark:border-app-border rounded-md shadow-lg py-1 w-40 z-10">
+              <div className="absolute top-full mt-1 left-0 bg-app-surface border border-app-border rounded-app-md shadow-lg py-1 w-40 z-10">
                 {(['date', 'name', 'size'] as const).map((option) => (
                   <button
                     key={option}
@@ -374,10 +374,10 @@ function Dashboard() {
                       setSortBy(option)
                       setSortMenuOpen(false)
                     }}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 ${
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-app-surface-2 ${
                       sortBy === option
-                        ? 'text-blue-600 dark:text-blue-400 font-medium'
-                        : 'text-slate-700 dark:text-slate-300'
+                        ? 'text-accent font-medium'
+                        : 'text-app-text'
                     }`}
                   >
                     {option === 'date' ? 'Newest first' : option === 'name' ? 'Name (A-Z)' : 'Largest first'}
@@ -393,18 +393,18 @@ function Dashboard() {
               placeholder="Search documents..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-3 py-2 rounded-md text-sm border border-slate-200 dark:border-app-border"
+              className="w-full bg-app-surface text-app-text px-3 py-2 rounded-app-md text-sm border border-app-border"
             />
           </form>
         </div>
 
         {loading && (
-          <p className="text-slate-500 dark:text-slate-400 text-sm">Loading your documents...</p>
+          <p className="text-app-text-secondary text-sm">Loading your documents...</p>
         )}
 
         {!loading && !searching && documents.length === 0 && (
           <div className="text-center py-12">
-            <p className="text-slate-500 dark:text-slate-400 text-sm">
+            <p className="text-app-text-secondary text-sm">
               {searchQuery.trim() === ''
                 ? 'Nothing here yet — use the box above to add your first document.'
                 : `No documents match "${searchQuery}".`}
@@ -422,16 +422,16 @@ function Dashboard() {
                   setPreviewUrl(null)
                   setSelectedDoc(doc)
                 }}
-                className="group bg-slate-100 dark:bg-app-surface p-4 rounded-lg flex flex-wrap items-center gap-4 border border-slate-200 dark:border-app-border hover:border-slate-300 dark:hover:border-slate-600 transition-colors cursor-pointer"
+                className="group bg-app-surface p-4 rounded-app-lg flex flex-wrap items-center gap-4 border border-app-border hover:border-app-text-secondary transition-colors cursor-pointer"
               >
                 <div
-                  className={`${color} text-white text-xs font-bold w-10 h-10 rounded-lg flex items-center justify-center shrink-0`}
+                  className={`${color} text-white text-xs font-bold w-10 h-10 rounded-app-lg flex items-center justify-center shrink-0`}
                 >
                   {label}
                 </div>
                 <div className="flex-1 min-w-[140px]">
-                  <p className="text-slate-900 dark:text-white font-medium truncate" title={doc.filename}>{doc.filename}</p>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm">
+                  <p className="text-app-text font-medium truncate" title={doc.filename}>{doc.filename}</p>
+                  <p className="text-app-text-secondary text-sm">
                     {formatBytes(doc.size_bytes)} · {formatRelativeTime(doc.uploaded_at)}
                   </p>
                 </div>
@@ -441,13 +441,13 @@ function Dashboard() {
                 >
                   <button
                     onClick={() => handleDownload(doc.id, doc.filename)}
-                    className="text-sm px-3 py-1.5 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white"
+                    className="text-sm px-3 py-1.5 rounded-app-md bg-app-surface-2 text-app-text"
                   >
                     Download
                   </button>
                   <button
                     onClick={() => handleDelete(doc.id)}
-                    className="text-sm px-3 py-1.5 rounded-md bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400"
+                    className="text-sm px-3 py-1.5 rounded-app-md bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-400"
                   >
                     Delete
                   </button>
@@ -460,7 +460,7 @@ function Dashboard() {
 
         {uploadMessage && (
           <div
-            className={`fixed bottom-6 left-6 px-4 py-3 rounded-lg text-sm text-white shadow-lg backdrop-blur-sm ${
+            className={`fixed bottom-6 left-6 px-4 py-3 rounded-app-lg text-sm text-white shadow-lg backdrop-blur-sm ${
               uploadMessage.error ? 'bg-red-600/90' : 'bg-green-600/90'
             }`}
           >
@@ -477,15 +477,15 @@ function Dashboard() {
             }}
           >
             <div
-              className="bg-white dark:bg-app-surface rounded-2xl max-w-4xl w-full h-[90vh] overflow-hidden flex flex-col shadow-xl"
+              className="bg-app-surface rounded-app-lg max-w-4xl w-full h-[90vh] overflow-hidden flex flex-col shadow-xl"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="p-6 border-b border-slate-200 dark:border-app-border flex items-start justify-between gap-4">
+              <div className="p-6 border-b border-app-border flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <p className="text-slate-900 dark:text-white font-semibold break-words">
+                  <p className="text-app-text font-semibold break-words">
                     {selectedDoc.filename}
                   </p>
-                  <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">
+                  <p className="text-app-text-secondary text-sm mt-1">
                     {formatBytes(selectedDoc.size_bytes)} · {formatRelativeTime(selectedDoc.uploaded_at)}
                   </p>
                 </div>
@@ -494,7 +494,7 @@ function Dashboard() {
                     setSelectedDoc(null)
                     setPreviewUrl(null)
                   }}
-                  className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xl leading-none shrink-0"
+                  className="text-app-text-secondary hover:text-app-text text-xl leading-none shrink-0"
                 >
                   ×
                 </button>
@@ -502,7 +502,7 @@ function Dashboard() {
 
               <div className="overflow-y-auto flex-1">
                 {previewUrl && selectedDoc.content_type?.startsWith('image/') && (
-                  <div className="w-full h-full flex items-center justify-center bg-slate-100 dark:bg-black/20 p-4">
+                  <div className="w-full h-full flex items-center justify-center bg-app-surface-2 p-4">
                     <img src={previewUrl} alt={selectedDoc.filename} className="max-w-full max-h-full object-contain" />
                   </div>
                 )}
@@ -515,7 +515,7 @@ function Dashboard() {
                   (selectedDoc.content_type === 'application/pdf' ||
                     selectedDoc.content_type?.startsWith('image/')) && (
                     <div className="w-full h-full flex items-center justify-center">
-                      <p className="text-slate-400 dark:text-slate-500 text-sm">Loading preview...</p>
+                      <p className="text-app-text-secondary text-sm">Loading preview...</p>
                     </div>
                   )}
 
@@ -525,15 +525,15 @@ function Dashboard() {
                     selectedDoc.content_type?.startsWith('image/')
                   ) && (
                   <div className="p-6">
-                    <p className="text-slate-500 dark:text-slate-400 text-xs font-semibold uppercase tracking-wide mb-2">
+                    <p className="text-app-text-secondary text-xs font-semibold uppercase tracking-wide mb-2">
                       Extracted text
                     </p>
                     {selectedDoc.extracted_text ? (
-                      <p className="text-slate-700 dark:text-slate-300 text-sm whitespace-pre-wrap">
+                      <p className="text-app-text text-sm whitespace-pre-wrap">
                         {selectedDoc.extracted_text}
                       </p>
                     ) : (
-                      <p className="text-slate-400 dark:text-slate-500 text-sm italic">
+                      <p className="text-app-text-secondary text-sm italic">
                         No preview or extracted text available for this file type.
                       </p>
                     )}
@@ -541,10 +541,10 @@ function Dashboard() {
                 )}
               </div>
 
-              <div className="p-4 border-t border-slate-200 dark:border-app-border flex gap-2 justify-end">
+              <div className="p-4 border-t border-app-border flex gap-2 justify-end">
                 <button
                   onClick={() => handleDownload(selectedDoc.id, selectedDoc.filename)}
-                  className="text-sm px-4 py-2 rounded-md bg-slate-200 dark:bg-slate-700 text-slate-900 dark:text-white"
+                  className="text-sm px-4 py-2 rounded-app-md bg-app-surface-2 text-app-text"
                 >
                   Download
                 </button>
