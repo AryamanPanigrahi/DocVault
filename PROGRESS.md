@@ -742,7 +742,60 @@
   for the exact hash — `desktop/src-tauri/Cargo.toml`,
   `Cargo.lock`, `src/lib.rs`).
 
+## Current state (last updated: 2026-08-23, evening)
+- **Full design system reskin applied**, from a mockup file the user
+  provided (`DocVault Redesign.html` — a self-extracting Artifact
+  bundle, single light-mode-only Dashboard state, no folder UI in it —
+  it's a visual reskin of the current app, not a new layout concept).
+  - New tokens in `frontend/src/index.css`: warm neutral palette
+    (`--color-app-bg/surface/surface-2/text/text-secondary`), teal
+    accent (`--color-accent` `#0088b0`) + magenta secondary
+    (`--color-accent-2` `#d6006c`), sharp corners
+    (`--radius-app-sm/md/lg`, 1-4px vs. the old rounded-lg/xl/2xl
+    scale), `Source Serif 4` for the logo wordmark only (page headings
+    stay Work Sans — verified against the mockup, not assumed).
+  - Dark mode: the mockup had none (light-only static export) — the
+    dark palette is derived to match the same accent language.
+    Structural choice: token values are overridden under `.dark`
+    rather than paired with a light class per-component (one class
+    like `bg-app-bg` now resolves differently depending on `.dark` on
+    `<html>`, replacing the old `bg-white dark:bg-app-bg` pattern
+    everywhere) — less editing per component, and the more standard
+    way to do token-based theming.
+  - File-type badge colors changed to match the mockup exactly: PDF is
+    now magenta (was red), DOC is teal (was blue), IMG is yellow
+    (`--color-process-yellow` `#edbb00`), XLS is light blue, PPT/
+    unknown is a cool neutral (`--color-file-neutral`).
+  - Touched: `index.css`, `index.html` (added Source Serif 4 Google
+    Fonts link), `Sidebar.tsx`, `Logo.tsx` (new SVG fill colors +
+    serif wordmark), `MobileTopBar.tsx`, `AuthLayout.tsx`, `Login.tsx`,
+    `Signup.tsx`, `Dashboard.tsx`, `Trash.tsx`, `fileType.ts`.
+  - Verified against the real running app, not just a successful
+    build: signed into a real test account, uploaded a real file,
+    read back computed styles via JS (badge color, border radius,
+    surface color, logo font) in both light and dark mode — all
+    matched the intended tokens exactly. (Screenshot/visual
+    compositing wasn't available in this session's Browser pane, so
+    verification was computed-style-based throughout, same method
+    used to inspect the source mockup itself.)
+- **Folders feature is next, not yet started.** Decisions already made
+  so a future session doesn't have to re-ask:
+  - Sequencing: redesign first (done above), folders second.
+  - Auto-categorization: fixed default classifiers **plus** user-
+    defined rules (hybrid, not one or the other) — exact rule
+    mechanism (keyword-based like the existing notes/assignments
+    classifier? something else?) not yet designed.
+  - Scope: auto-sort into folders applies to **both** desktop-watcher
+    uploads and manual web-app uploads (drag-drop/click) — not
+    watcher-only.
+  - Not yet decided: folder nesting depth (single level vs. arbitrary
+    subfolders-within-subfolders), what happens to a folder's contents
+    on delete (cascade/block/move-to-root), exact backend schema
+    (self-referential `folders` table + `folder_id` FK on `documents`
+    is the obvious shape but not yet built).
+
 ## Next phase
-Per CLAUDE.md roadmap: **Phase 3, Android client + real cross-device
-sync** — the original motivating problem for the whole project
-(Windows-to-Android). Not started.
+Folders (see above) is the immediate next task. Per CLAUDE.md roadmap,
+**Phase 3 (Android client + real cross-device sync)** remains the
+next major phase after that — the original motivating problem for the
+whole project (Windows-to-Android). Not started.
