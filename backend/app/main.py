@@ -79,17 +79,25 @@ def upload_document(
         content_type=file.content_type,
     )
 
-    new_document = models.Document(
-    filename=file.filename,
-    file_path=storage_key,
-    content_type=file.content_type,
-    size_bytes=file_size,
-    owner_id=current_user.id,
-    extracted_text=extracted_text,
-)
-    db.add(new_document)
-    db.commit()
-    db.refresh(new_document)
+    try:
+        new_document = models.Document(
+            filename=file.filename,
+            file_path=storage_key,
+            content_type=file.content_type,
+            size_bytes=file_size,
+            owner_id=current_user.id,
+            extracted_text=extracted_text,
+        )
+        db.add(new_document)
+        db.commit()
+        db.refresh(new_document)
+    except Exception:
+        try:
+            minio_client.remove_object(BUCKET_NAME, storage_key)
+        except Exception as cleanup_error:
+            print(f"Warning: failed to clean up orphaned file after DB error: {cleanup_error}")
+        raise HTTPException(status_code=500, detail="Upload failed, please try again")
+
     return new_document
 
 @app.get("/documents/search", response_model=list[schemas.DocumentOut])
