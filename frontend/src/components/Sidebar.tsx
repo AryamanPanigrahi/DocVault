@@ -11,6 +11,7 @@ interface SidebarProps {
   onLogout: () => void
   mobileOpen: boolean
   onCloseMobile: () => void
+  onNavigateHome?: () => void
 }
 
 function Sidebar({
@@ -21,6 +22,7 @@ function Sidebar({
   onLogout,
   mobileOpen,
   onCloseMobile,
+  onNavigateHome,
 }: SidebarProps) {
   const [sweepNotesAssignments, setSweepNotesAssignmentsState] = useState(getSweepNotesAssignments)
 
@@ -51,7 +53,14 @@ function Sidebar({
             <Logo size={32} />
           </div>
           <nav className="flex flex-col gap-1">
-            <Link to="/" onClick={onCloseMobile} className={linkClass('documents')}>
+            <Link
+              to="/"
+              onClick={() => {
+                onCloseMobile()
+                onNavigateHome?.()
+              }}
+              className={linkClass('documents')}
+            >
               All Documents
             </Link>
             <Link to="/trash" onClick={onCloseMobile} className={linkClass('trash')}>
