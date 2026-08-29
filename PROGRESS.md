@@ -882,8 +882,45 @@
   earlier decision). Backend is ready for both; neither has any
   frontend or routing logic yet.
 
+## Current state (last updated: 2026-08-29, later)
+- **Folders Stage B (frontend navigation) done and pushed** as
+  `1c1d2d8`, on top of Stage A's backend (`09de5e6`).
+  - `Dashboard.tsx`: breadcrumb (Home > ... > current), "+ Folder"
+    creation (uses `window.prompt` — matches the project's existing
+    lightweight-dialog style, e.g. `window.confirm` for deletes,
+    rather than introducing a new modal system), folder tiles above
+    the document list with a ••• rename/delete menu, and a "Move
+    to..." dropdown per document (flat folder list indented by
+    nesting depth via `getFolderDepth()`).
+  - Uploads made while inside a folder go straight into it
+    (`folder_id` attached to the upload FormData).
+  - `Sidebar.tsx`: "All Documents" link now explicitly resets
+    `currentFolderId` via a new `onNavigateHome` callback — needed
+    because it's a same-route `<Link to="/">`, which doesn't reset
+    component state on its own when already on that route.
+  - Trash deliberately untouched — stays a flat list regardless of a
+    document's original folder.
+  - Verified against the real running app end-to-end (not just
+    compiled): folder creation, nested subfolder creation, upload
+    directly into a folder, folder-scoped listing (root shows only
+    top-level folders, entering one shows its own contents), moving a
+    document (confirmed instant list update, no refetch needed),
+    rename, and — the one that mattered most — deleting a folder that
+    held both a document and a subfolder, confirming both landed at
+    root afterward exactly as designed.
+  - Testing note for future sessions: `window.prompt`/`window.confirm`
+    block real dialogs that JS-injection automation can't answer
+    directly — override them in the page context first (e.g.
+    `window.prompt = () => 'value'`) before triggering the button that
+    calls them.
+- **Not yet built**: Stage C (auto-categorization — routing files into
+  folders via built-in default classifiers + the `auto_keywords`
+  user-defined rules, wired into both the desktop watcher and manual
+  uploads). The `auto_keywords` column exists on `Folder` but nothing
+  reads or writes it yet.
+
 ## Next phase
-Folders Stage B (frontend) is next. Per CLAUDE.md roadmap, **Phase 3
-(Android client + real cross-device sync)** remains the next major
-phase after folders is complete — the original motivating problem for
-the whole project (Windows-to-Android). Not started.
+Folders Stage C (auto-categorization) is next. Per CLAUDE.md roadmap,
+**Phase 3 (Android client + real cross-device sync)** remains the next
+major phase after folders is complete — the original motivating
+problem for the whole project (Windows-to-Android). Not started.
