@@ -835,8 +835,55 @@
   asking first.
 - Commit: `2ef9102`.
 
+## Current state (last updated: 2026-08-29)
+- Found (not made by me) two pieces of work done directly by the user
+  between sessions, now part of history: `b6cb0b0` "Error handling on
+  the upload document" (wraps the DB insert in try/except, cleans up
+  the orphaned MinIO object on failure — good, no concerns) and an
+  uncommitted `alembic/env.py` change hardcoding migrations to always
+  target `localhost` (asked the user, confirmed deliberate — committed
+  as `84a5d4f`). Note for any future session: **migrations no longer
+  read `DATABASE_URL`** — running one against production now needs a
+  different, more deliberate approach (e.g. temporarily editing that
+  line) than the old `DATABASE_URL=... alembic upgrade head` pattern
+  used during the original Phase 1 Neon migration.
+- **Folders feature, Stage A (backend schema + CRUD) done and pushed**
+  as `09de5e6`. Two remaining design questions (asked and answered
+  before building): arbitrary folder nesting (not flat, chosen), and
+  deleting a folder moves its contents — both documents AND
+  subfolders — to root rather than cascading/blocking (chosen).
+  - `Folder` model: self-referential `parent_id`, `auto_keywords`
+    (comma-separated) column reserved for the not-yet-built
+    user-defined-rules stage.
+  - `Document.folder_id` nullable (null = root).
+  - Endpoints: `GET/POST /folders`, `PATCH /folders/{id}`,
+    `DELETE /folders/{id}`, `POST /documents/{id}/move`.
+    `GET /documents?folder_id=X` is now folder-scoped — omitting the
+    param means root only, **not** every document everywhere (this is
+    a behavior change from before, but harmless today since every
+    existing document's `folder_id` is still null). Search deliberately
+    stays unscoped.
+  - `POST /documents/upload` accepts an optional `folder_id`.
+  - Migration `00b64de35555` applied to local Postgres only — **not
+    yet applied to production** (Render/Neon). No rush since nothing
+    in prod depends on it yet, but whenever this ships, someone needs
+    to explicitly run it against prod given the `env.py` change above.
+  - Verified against the real local DB, not just written and assumed
+    correct: nested folder creation, upload into a folder vs. root,
+    folder-scoped listing showing only direct contents, move, rename,
+    deleting a folder that has both a document and a subfolder inside
+    it (confirmed both correctly landed at root afterward), and a
+    cross-user 403 on someone else's folder.
+- **Not yet built**: Stage B (frontend folder navigation — tree/
+  breadcrumbs, create/rename/delete UI, move-file UI) and Stage C
+  (auto-categorization: routing files into folders via built-in
+  default classifiers + the user-defined `auto_keywords` rules,
+  wired into both the desktop watcher and manual web uploads per the
+  earlier decision). Backend is ready for both; neither has any
+  frontend or routing logic yet.
+
 ## Next phase
-Folders (see above) is the immediate next task. Per CLAUDE.md roadmap,
-**Phase 3 (Android client + real cross-device sync)** remains the
-next major phase after that — the original motivating problem for the
-whole project (Windows-to-Android). Not started.
+Folders Stage B (frontend) is next. Per CLAUDE.md roadmap, **Phase 3
+(Android client + real cross-device sync)** remains the next major
+phase after folders is complete — the original motivating problem for
+the whole project (Windows-to-Android). Not started.
