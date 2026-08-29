@@ -20,10 +20,7 @@ config = context.config
 
 load_dotenv(os.path.join(os.path.dirname(__file__), "..", "..", ".env"))
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('POSTGRES_HOST', 'localhost')}:5432/{os.getenv('POSTGRES_DB')}",
-)
+DATABASE_URL = f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}@localhost:5432/{os.getenv('POSTGRES_DB')}"
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 # Interpret the config file for Python logging.
@@ -33,7 +30,7 @@ if config.config_file_name is not None:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-target_metadata = Base.metadata
+
 target_metadata = Base.metadata
 
 # other values from the config, defined by the needs of env.py,
