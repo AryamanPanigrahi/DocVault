@@ -504,6 +504,13 @@ function Dashboard() {
         .filter((f) => f.parent_id === currentFolderId)
         .sort((a, b) => a.name.localeCompare(b.name))
   const breadcrumbPath = getBreadcrumbPath()
+  const currentFolder = folders.find((f) => f.id === currentFolderId)
+
+  function goBack() {
+    // One level up: the current folder's parent, or root if it was
+    // already a top-level folder. No-op at root — nothing above Home.
+    setCurrentFolderId(currentFolder ? currentFolder.parent_id : null)
+  }
 
   return (
     <div className="h-screen flex bg-white dark:bg-app-bg">
@@ -531,7 +538,16 @@ function Dashboard() {
         </div>
 
         {!isSearching && (
-          <div className="flex items-center flex-wrap gap-1 text-sm mb-2">
+          <div className="flex items-center flex-wrap gap-2 text-sm mb-2">
+            <button
+              onClick={goBack}
+              disabled={currentFolderId === null}
+              title="Back"
+              className="text-slate-500 dark:text-slate-400 disabled:opacity-30 disabled:cursor-default hover:text-slate-900 dark:hover:text-white"
+            >
+              ← Back
+            </button>
+            <span className="text-slate-300 dark:text-slate-700">|</span>
             <button
               onClick={() => setCurrentFolderId(null)}
               className={
