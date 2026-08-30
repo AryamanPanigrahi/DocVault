@@ -61,6 +61,13 @@ function Dashboard() {
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null)
   const [moveMenuOpenFor, setMoveMenuOpenFor] = useState<number | null>(null)
   const [folderMenuOpenFor, setFolderMenuOpenFor] = useState<number | null>(null)
+  // Real in-app dialog for create/rename — window.prompt() reads as a
+  // browser popup, not part of the app, unlike window.confirm() for
+  // deletes which at least matches a common "are you sure?" pattern.
+  const [folderDialog, setFolderDialog] = useState<{ mode: 'create' | 'rename'; folder?: Folder } | null>(
+    null
+  )
+  const [folderDialogValue, setFolderDialogValue] = useState('')
 
   function handleUnauthorized() {
     localStorage.removeItem('access_token')
@@ -175,15 +182,55 @@ function Dashboard() {
     setSearching(false)
   }
 
-  async function createFolder() {
-    const name = window.prompt('Folder name?')
-    if (!name || !name.trim()) return
+  function openCreateFolderDialog() {
+    setFolderDialogValue('')
+    setFolderDialog({ mode: 'create' })
+  }
+
+  function openRenameFolderDialog(folder: Folder) {
+    setFolderDialogValue(folder.name)
+    setFolderDialog({ mode: 'rename', folder })
+  }
+
+  async function submitFolderDialog(e: React.FormEvent) {
+    e.preventDefault()
+    const name = folderDialogValue.trim()
+    if (!name || !folderDialog) return
 
     const token = localStorage.getItem('access_token')
-    const response = await fetch(`${API_URL}/folders`, {
-      method: 'POST',
+
+    if (folderDialog.mode === 'create') {
+      const response = await fetch(`${API_URL}/folders`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, parent_id: currentFolderId }),
+      })
+
+      if (response.status === 401) {
+        handleUnauthorized()
+        return
+      }
+
+      if (response.ok) {
+        setFolderDialog(null)
+        await fetchFolders()
+      } else {
+        setUploadMessage({ text: 'Could not create folder', error: true })
+        setTimeout(() => setUploadMessage(null), 3000)
+      }
+      return
+    }
+
+    // rename
+    if (name === folderDialog.folder!.name) {
+      setFolderDialog(null)
+      return
+    }
+
+    const response = await fetch(`${API_URL}/folders/${folderDialog.folder!.id}`, {
+      method: 'PATCH',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.trim(), parent_id: currentFolderId }),
+      body: JSON.stringify({ name }),
     })
 
     if (response.status === 401) {
@@ -192,30 +239,9 @@ function Dashboard() {
     }
 
     if (response.ok) {
+      setFolderDialog(null)
       await fetchFolders()
-    } else {
-      setUploadMessage({ text: 'Could not create folder', error: true })
-      setTimeout(() => setUploadMessage(null), 3000)
     }
-  }
-
-  async function renameFolder(folder: Folder) {
-    const name = window.prompt('Rename folder', folder.name)
-    if (!name || !name.trim() || name.trim() === folder.name) return
-
-    const token = localStorage.getItem('access_token')
-    const response = await fetch(`${API_URL}/folders/${folder.id}`, {
-      method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: name.trim() }),
-    })
-
-    if (response.status === 401) {
-      handleUnauthorized()
-      return
-    }
-
-    if (response.ok) await fetchFolders()
   }
 
   async function deleteFolder(folder: Folder) {
@@ -559,7 +585,7 @@ function Dashboard() {
 
         <div className="flex gap-2 mb-6">
           <button
-            onClick={createFolder}
+            onClick={openCreateFolderDialog}
             className="bg-slate-100 dark:bg-app-surface text-slate-900 dark:text-white px-3 py-2.5 rounded-md border border-slate-200 dark:border-app-border text-sm font-medium whitespace-nowrap"
           >
             + Folder
@@ -651,7 +677,7 @@ function Dashboard() {
                       <button
                         onClick={() => {
                           setFolderMenuOpenFor(null)
-                          renameFolder(folder)
+                          openRenameFolderDialog(folder)
                         }}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300"
                       >
@@ -756,7 +782,7 @@ function Dashboard() {
 
         {uploadMessage && (
           <div
-            className={`fixed bottom-6 left-6 px-4 py-3 rounded-lg text-sm text-white shadow-lg backdrop-blur-sm ${
+            className={`fixed bottom-6 left-6 z-[100] px-4 py-3 rounded-lg text-sm text-white shadow-lg backdrop-blur-sm ${
               uploadMessage.error ? 'bg-red-600/90' : 'bg-green-600/90'
             }`}
           >
@@ -846,6 +872,47 @@ function Dashboard() {
                 </button>
               </div>
             </div>
+          </div>
+        )}
+
+        {folderDialog && (
+          <div
+            className="fixed inset-0 bg-black/50 z-[90] flex items-center justify-center p-6"
+            onClick={() => setFolderDialog(null)}
+          >
+            <form
+              onSubmit={submitFolderDialog}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-app-surface rounded-lg w-full max-w-sm p-6 shadow-xl flex flex-col gap-4"
+            >
+              <h2 className="text-lg font-semibold text-slate-900 dark:text-white">
+                {folderDialog.mode === 'create' ? 'New folder' : 'Rename folder'}
+              </h2>
+              <input
+                autoFocus
+                type="text"
+                value={folderDialogValue}
+                onChange={(e) => setFolderDialogValue(e.target.value)}
+                placeholder="Folder name"
+                className="bg-white dark:bg-app-bg text-slate-900 dark:text-white p-2 rounded border border-slate-300 dark:border-app-border"
+              />
+              <div className="flex gap-2 justify-end">
+                <button
+                  type="button"
+                  onClick={() => setFolderDialog(null)}
+                  className="text-sm px-4 py-2 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!folderDialogValue.trim()}
+                  className="text-sm px-4 py-2 rounded-md bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:hover:bg-blue-600 text-white"
+                >
+                  {folderDialog.mode === 'create' ? 'Create' : 'Save'}
+                </button>
+              </div>
+            </form>
           </div>
         )}
       </main>
