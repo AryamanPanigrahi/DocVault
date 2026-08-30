@@ -17,11 +17,23 @@ function Login() {
     formData.append('username', email)
     formData.append('password', password)
 
-    const response = await fetch(`${API_URL}/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData,
-    })
+    let response: Response
+    try {
+      response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: formData,
+      })
+    } catch (err) {
+      // fetch() throws (rather than resolving with a non-ok response) on
+      // network-level failures — connection refused, CORS rejection, DNS
+      // failure, etc. Without this catch, that rejection was silent: no
+      // error shown, no navigation, the button just appeared to do
+      // nothing at all.
+      console.error('Login request failed', err)
+      setError(`Could not reach the server at ${API_URL}. Is it running?`)
+      return
+    }
 
     if (!response.ok) {
       setError('Incorrect email or password')

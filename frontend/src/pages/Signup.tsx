@@ -13,11 +13,18 @@ function Signup() {
     e.preventDefault()
     setError('')
 
-    const response = await fetch(`${API_URL}/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
+    let response: Response
+    try {
+      response = await fetch(`${API_URL}/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+    } catch (err) {
+      console.error('Signup request failed', err)
+      setError(`Could not reach the server at ${API_URL}. Is it running?`)
+      return
+    }
 
     if (!response.ok) {
       const data = await response.json()
