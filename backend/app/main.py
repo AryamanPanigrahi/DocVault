@@ -14,6 +14,14 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:5173",
         "https://doc-vault-jet-kappa.vercel.app",
+        # The installed desktop app doesn't load from localhost:5173 like
+        # `tauri dev` does — it loads bundled assets via Tauri's internal
+        # protocol, whose origin is one of these depending on platform/
+        # version convention. `tauri dev` already worked (matches the
+        # localhost:5173 entry above), which is why this was missed until
+        # testing the actual installed production build.
+        "https://tauri.localhost",
+        "tauri://localhost",
     ],
     allow_credentials=True,
     allow_methods=["*"],
