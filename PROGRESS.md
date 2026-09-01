@@ -919,6 +919,76 @@
   uploads). The `auto_keywords` column exists on `Folder` but nothing
   reads or writes it yet.
 
+## Current state (last updated: 2026-09-02)
+- **Production DB was broken for a stretch — fixed.** Render auto-
+  deploys from `main` on every push, so Stage A's `folder_id`/`folders`
+  schema went live on the production backend the moment it was pushed
+  — but the migration had (deliberately, per the earlier `env.py`
+  hardening) only been applied to local Postgres, not the production
+  Neon database. Every `/documents` request against production was
+  erroring (missing column) the whole time, surfacing as "website
+  shows no files, uploads don't appear." Fixed by applying the
+  migration to production directly via Alembic's Python API with an
+  explicit `sqlalchemy.url` override (`env.py`'s hardcoded-localhost
+  change forcibly overwrites naive attempts at this — had to construct
+  a fresh `Config` and pass `-i` to `docker exec` for the psql
+  fallback, since without `-i` a heredoc's stdin never reaches the
+  containerized `psql` at all — first attempt looked like it ran but
+  silently touched nothing). Verified against live production
+  afterward: signup → list (empty) → upload → list (shows the file),
+  not just "the migration command exited 0."
+- **UI fixes from user feedback**: replaced `window.prompt()` for
+  folder create/rename with a real in-app modal (a native browser
+  popup read as broken, unlike `window.confirm()` for deletes which at
+  least matches a common pattern); fixed the upload toast rendering
+  *behind* the sidebar (it had no `z-index` at all, sidebar has `z-50`
+  — toast now `z-[100]`); added a "← Back" button next to the
+  breadcrumb (one level up, disabled at root) as a quicker alternative
+  to clicking a specific breadcrumb crumb.
+- **Desktop login was completely broken — root-caused and fixed.**
+  Took a long debugging arc; worth recording precisely since it's easy
+  to re-break:
+  1. Login's `fetch()` had no `try/catch` — a network-level failure
+     (as opposed to an HTTP error response) rejected silently: no
+     error, no navigation, button just did nothing. Fixed in both
+     Login.tsx and Signup.tsx — now shows "Could not reach the server
+     at `<API_URL>`", which also usefully surfaces the configured
+     API_URL for diagnosis.
+  2. That surfaced the real problem: the installed production desktop
+     app doesn't load from `http://localhost:5173` like `tauri dev`
+     does — it loads bundled assets via Tauri's internal protocol,
+     whose real origin (confirmed via the app's own DevTools Network
+     tab request headers, not guessed) is **`http://tauri.localhost`**
+     — note plain `http://`, not `https://tauri.localhost` or
+     `tauri://localhost` as first assumed. Neither of those two guesses
+     was right; only inspecting the actual `Origin` request header
+     settled it.
+  3. Even after adding the correct origin, it still failed — because
+     **uvicorn's `--reload` had silently gotten stuck** after the
+     first debug edit and never actually restarted the worker process
+     again; every subsequent fix (a wildcard CORS test included) was
+     being applied to source that was never loaded. The log's tell:
+     one "Reloading..." line with no "Started server process" or
+     "Application startup complete" ever following it. Only a full
+     `taskkill` of both the reloader and stale worker PID, then a
+     fresh `uvicorn` **without** `--reload`, actually picked up the
+     fix. **Lesson for future local backend work**: if a fix seems to
+     have zero effect no matter what's tried, check the reload log for
+     a stuck reload before doubting the fix itself — verify the actual
+     runtime code, don't just trust that `--reload` did its job.
+  4. `main.py`'s CORS allowlist now includes `http://tauri.localhost`
+     (committed and pushed — also live on production Render, harmless
+     there since desktop currently only targets local anyway, but
+     future-proofs it).
+  - Diagnostic method worth remembering: `curl` cannot detect CORS
+    bugs at all (CORS is enforced by the browser reading the response,
+    not the server refusing the request) — a `curl` health/login check
+    passing proves nothing about whether a real browser/webview can
+    use the same endpoint. Needed the actual DevTools Network+Console
+    tabs to see `net::ERR_FAILED` alongside a `200 OK` status (the
+    Chromium signature for "request completed, response blocked from
+    JS") and the literal browser-printed error text.
+
 ## Next phase
 Folders Stage C (auto-categorization) is next. Per CLAUDE.md roadmap,
 **Phase 3 (Android client + real cross-device sync)** remains the next

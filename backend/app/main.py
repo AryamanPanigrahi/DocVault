@@ -9,19 +9,16 @@ from app.ocr import extract_text
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
         "https://doc-vault-jet-kappa.vercel.app",
-        # The installed desktop app doesn't load from localhost:5173 like
-        # `tauri dev` does — it loads bundled assets via Tauri's internal
-        # protocol, whose origin is one of these depending on platform/
-        # version convention. `tauri dev` already worked (matches the
-        # localhost:5173 entry above), which is why this was missed until
-        # testing the actual installed production build.
-        "https://tauri.localhost",
-        "tauri://localhost",
+        # Confirmed via the installed app's actual DevTools Network tab
+        # (Origin request header) — not a guess. It's http://, not
+        # https:// or tauri:// as originally assumed.
+        "http://tauri.localhost",
     ],
     allow_credentials=True,
     allow_methods=["*"],
