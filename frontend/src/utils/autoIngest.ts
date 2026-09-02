@@ -1,7 +1,6 @@
 import { readFile } from '@tauri-apps/plugin-fs'
 import { API_URL } from '../config'
-import { classifyContent } from './classifyContent'
-import { getSweepNotesAssignments } from './watcherSettings'
+import { autoOrganizeDocument } from './autoOrganize'
 
 interface UploadedDocument {
   id: number
@@ -13,6 +12,7 @@ export type IngestResult =
   | { status: 'unauthorized' }
   | { status: 'failed' }
   | { status: 'removed'; filename: string }
+  | { status: 'moved'; filename: string; folderName: string }
   | { status: 'uploaded'; filename: string }
 
 // Self-contained (no React state) so it can run from anywhere in the app,
@@ -65,27 +65,20 @@ export async function autoIngestFile(
 
   const uploaded: UploadedDocument = await uploadResponse.json()
 
-  const shouldRemove =
-    classifyContent(uploaded.extracted_text) === 'notes_assignments' && !getSweepNotesAssignments()
+  // The watcher always uploads to root (it has no concept of "the folder
+  // you're currently browsing"), so auto-organize always applies here —
+  // unlike manual uploads, where an explicit folder choice skips it.
+  const result = await autoOrganizeDocument(uploaded)
 
-  if (!shouldRemove) {
-    return { status: 'uploaded', filename: uploaded.filename }
+  switch (result.action) {
+    case 'unauthorized':
+      localStorage.removeItem('access_token')
+      return { status: 'unauthorized' }
+    case 'deleted':
+      return { status: 'removed', filename: uploaded.filename }
+    case 'moved':
+      return { status: 'moved', filename: uploaded.filename, folderName: result.folderName }
+    case 'kept':
+      return { status: 'uploaded', filename: uploaded.filename }
   }
-
-  const deleteResponse = await fetch(`${API_URL}/documents/${uploaded.id}/permanent`, {
-    method: 'DELETE',
-    headers: { Authorization: `Bearer ${token}` },
-  })
-
-  if (deleteResponse.status === 401) {
-    localStorage.removeItem('access_token')
-    return { status: 'unauthorized' }
-  }
-
-  if (!deleteResponse.ok) {
-    console.error('Auto-reject permanent delete failed', deleteResponse.status)
-    return { status: 'uploaded', filename: uploaded.filename }
-  }
-
-  return { status: 'removed', filename: uploaded.filename }
 }

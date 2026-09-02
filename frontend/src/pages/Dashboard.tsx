@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getFileTypeInfo } from '../utils/fileType'
 import { formatBytes, formatRelativeTime } from '../utils/format'
+import { autoOrganizeDocument } from '../utils/autoOrganize'
 import useTheme from '../hooks/useTheme'
 import Sidebar from '../components/Sidebar'
 import MobileTopBar from '../components/MobileTopBar'
@@ -68,6 +69,7 @@ function Dashboard() {
     null
   )
   const [folderDialogValue, setFolderDialogValue] = useState('')
+  const [folderDialogKeywords, setFolderDialogKeywords] = useState('')
 
   function handleUnauthorized() {
     localStorage.removeItem('access_token')
@@ -184,11 +186,13 @@ function Dashboard() {
 
   function openCreateFolderDialog() {
     setFolderDialogValue('')
+    setFolderDialogKeywords('')
     setFolderDialog({ mode: 'create' })
   }
 
   function openRenameFolderDialog(folder: Folder) {
     setFolderDialogValue(folder.name)
+    setFolderDialogKeywords(folder.auto_keywords ?? '')
     setFolderDialog({ mode: 'rename', folder })
   }
 
@@ -196,6 +200,7 @@ function Dashboard() {
     e.preventDefault()
     const name = folderDialogValue.trim()
     if (!name || !folderDialog) return
+    const auto_keywords = folderDialogKeywords.trim() || null
 
     const token = localStorage.getItem('access_token')
 
@@ -203,7 +208,7 @@ function Dashboard() {
       const response = await fetch(`${API_URL}/folders`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, parent_id: currentFolderId }),
+        body: JSON.stringify({ name, parent_id: currentFolderId, auto_keywords }),
       })
 
       if (response.status === 401) {
@@ -222,7 +227,7 @@ function Dashboard() {
     }
 
     // rename
-    if (name === folderDialog.folder!.name) {
+    if (name === folderDialog.folder!.name && auto_keywords === (folderDialog.folder!.auto_keywords ?? null)) {
       setFolderDialog(null)
       return
     }
@@ -230,7 +235,7 @@ function Dashboard() {
     const response = await fetch(`${API_URL}/folders/${folderDialog.folder!.id}`, {
       method: 'PATCH',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, auto_keywords }),
     })
 
     if (response.status === 401) {
@@ -335,7 +340,30 @@ function Dashboard() {
     if (response.ok) {
       uploaded = await response.json()
       await fetchDocuments()
-      setUploadMessage({ text: 'File uploaded successfully', error: false })
+
+      // Auto-organize only applies at root — uploading while browsing a
+      // specific folder is an explicit choice that should never be
+      // silently overridden by a keyword rule or the default classifier.
+      if (currentFolderId === null && uploaded) {
+        const result = await autoOrganizeDocument(uploaded)
+        if (result.action === 'unauthorized') {
+          handleUnauthorized()
+          return undefined
+        }
+        if (result.action === 'moved' || result.action === 'deleted') {
+          await fetchFolders()
+          await fetchDocuments()
+        }
+        setUploadMessage(
+          result.action === 'moved'
+            ? { text: `Filed into "${result.folderName}"`, error: false }
+            : result.action === 'deleted'
+              ? { text: `Auto-removed "${uploaded.filename}" (identified as notes/assignment)`, error: false }
+              : { text: 'File uploaded successfully', error: false }
+        )
+      } else {
+        setUploadMessage({ text: 'File uploaded successfully', error: false })
+      }
     } else {
       setUploadMessage({ text: 'Upload failed', error: true })
     }
@@ -417,7 +445,16 @@ function Dashboard() {
 
     window.addEventListener('paste', handlePaste)
     return () => window.removeEventListener('paste', handlePaste)
-  }, [])
+    // currentFolderId in the deps: without it, this effect's closure over
+    // uploadFile() (and, transitively, currentFolderId) freezes at mount
+    // and never updates — pasting while browsing any folder would keep
+    // silently uploading to root no matter how deep you navigate. Found
+    // via testing Stage C's "explicit folder skips auto-organize" case:
+    // a paste-uploaded file that should have stayed put kept vanishing
+    // (auto-organized as if it were a root upload), because it genuinely
+    // was one — currentFolderId was already 2 folders old.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentFolderId])
 
   useEffect(() => {
     if (!selectedDoc) return
@@ -912,6 +949,19 @@ function Dashboard() {
                 placeholder="Folder name"
                 className="bg-white dark:bg-app-bg text-slate-900 dark:text-white p-2 rounded border border-slate-300 dark:border-app-border"
               />
+              <div>
+                <input
+                  type="text"
+                  value={folderDialogKeywords}
+                  onChange={(e) => setFolderDialogKeywords(e.target.value)}
+                  placeholder="Auto-file keywords (optional, comma-separated)"
+                  className="w-full bg-white dark:bg-app-bg text-slate-900 dark:text-white p-2 rounded border border-slate-300 dark:border-app-border"
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                  Files uploaded to root whose name or content match any of these words are
+                  automatically filed here.
+                </p>
+              </div>
               <div className="flex gap-2 justify-end">
                 <button
                   type="button"
