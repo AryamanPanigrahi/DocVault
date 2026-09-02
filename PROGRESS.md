@@ -989,8 +989,54 @@
     Chromium signature for "request completed, response blocked from
     JS") and the literal browser-printed error text.
 
+## Current state (last updated: 2026-09-02, later)
+- **Folders Stage C (auto-categorization) done and pushed** as
+  `48a2eb7`. This completes the folders feature — all three stages
+  (A: backend schema/CRUD, B: frontend navigation, C: auto-sort) are
+  now built.
+  - New shared `frontend/src/utils/autoOrganize.ts`: after any upload
+    that lands at root, checks user-defined folder rules first
+    (`Folder.auto_keywords`, comma-separated, matched against filename
+    + OCR text), then falls back to the one built-in classifier
+    (notes/assignments). Used by both `autoIngest.ts` (desktop
+    watcher, refactored to delegate to it) and `Dashboard.tsx` (manual
+    web uploads) — per the earlier decision that this applies to both
+    upload paths, not watcher-only.
+  - The notes/assignments toggle's meaning is preserved and extended:
+    OFF still fully deletes them (unchanged), ON now files them into
+    an auto-created "Notes & Assignments" root folder instead of just
+    leaving them at root.
+  - **Auto-organize only fires for root uploads.** Uploading while
+    browsing a specific folder is treated as an explicit choice and is
+    never silently overridden — this was a deliberate design decision,
+    not an oversight, and it's the thing most worth remembering if
+    "why didn't this get auto-sorted" ever comes up.
+  - Folder create/rename dialog now has an "Auto-file keywords" field
+    — previously `auto_keywords` was only settable via a raw API call,
+    with zero UI for the capability at all.
+  - Verified against the real running app, all four cases: a
+    user-defined rule routing a matching file into its folder; the
+    built-in classifier + toggle-on auto-creating "Notes & Assignments"
+    and filing a real OCR'd PDF into it; the same content + toggle-off
+    still fully deleting (unchanged prior behavior); and an
+    explicit-folder upload correctly skipping auto-organize.
+  - **A real pre-existing bug was found and fixed along the way**,
+    exposed by the explicit-folder test specifically: the paste-upload
+    listener's `useEffect` had an empty dependency array, so its
+    closure over `uploadFile()`/`currentFolderId` froze at mount
+    forever — pasting a file while browsing *any* folder was silently
+    uploading to root regardless of navigation depth, the entire time
+    folders have existed. Fixed by adding `currentFolderId` to the
+    effect's dependency array so it re-registers with a fresh closure
+    on every folder navigation. Unrelated to Stage C's own logic, just
+    surfaced by testing it thoroughly enough to actually navigate
+    before pasting — worth remembering as a general lesson: an empty
+    `useEffect` dependency array on a listener that calls a function
+    closing over frequently-changing state is a real bug pattern to
+    watch for elsewhere too, not just here.
+
 ## Next phase
-Folders Stage C (auto-categorization) is next. Per CLAUDE.md roadmap,
-**Phase 3 (Android client + real cross-device sync)** remains the next
-major phase after folders is complete — the original motivating
-problem for the whole project (Windows-to-Android). Not started.
+Folders feature is complete (Stages A, B, C all done). Per CLAUDE.md
+roadmap, **Phase 3 (Android client + real cross-device sync)** is next
+— the original motivating problem for the whole project
+(Windows-to-Android). Not started.
